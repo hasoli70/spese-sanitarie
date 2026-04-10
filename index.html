@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Spese Sanitarie" />
+<title>Spese Sanitarie</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; min-height: 100vh; }
+  .app { max-width: 480px; margin: 0 auto; min-height: 100vh; background: #fff; display: flex; flex-direction: column; position: relative; }
+  .header { background: #1a6b4a; color: white; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 18px; font-weight: 600; }
+  .header-sub { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+  .settings-btn { background: rgba(255,255,255,0.2); border: none; color: white; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; }
+  .content { flex: 1; padding: 16px; overflow-y: auto; padding-bottom: 100px; }
+  .token-screen { padding: 32px 8px; display: flex; flex-direction: column; gap: 14px; }
+  .token-screen h2 { font-size: 20px; font-weight: 600; color: #111; }
+  .token-screen p { font-size: 14px; color: #666; line-height: 1.6; }
+  .token-screen input { width: 100%; padding: 12px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 13px; font-family: monospace; background: #f9f9f9; color: #111; }
+  .token-screen input:focus { outline: none; border-color: #1a6b4a; }
+  label { font-size: 12px; color: #888; margin-bottom: -8px; }
+  .btn-primary { background: #1a6b4a; color: white; border: none; padding: 14px 24px; border-radius: 12px; font-size: 16px; cursor: pointer; width: 100%; font-weight: 600; }
+  .btn-primary:active { background: #155a3d; }
+  .btn-danger { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6c6; padding: 7px 14px; border-radius: 8px; font-size: 14px; cursor: pointer; flex-shrink: 0; }
+  .btn-danger:active { background: #ffe0e0; }
+  .empty-state { text-align: center; padding: 60px 24px; color: #999; }
+  .empty-icon { width: 72px; height: 72px; background: #f0f0f0; border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 32px; }
+  .receipt-list { display: flex; flex-direction: column; gap: 12px; }
+  .receipt-card { background: #fff; border: 1px solid #eee; border-radius: 14px; overflow: hidden; display: flex; align-items: center; gap: 12px; padding: 12px; }
+  .receipt-thumb { width: 60px; height: 60px; border-radius: 10px; background: #f0f0f0; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .receipt-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .receipt-info { flex: 1; min-width: 0; }
+  .receipt-name { font-size: 13px; font-weight: 600; color: #111; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .receipt-date { font-size: 12px; color: #888; margin-top: 2px; }
+  .receipt-status { font-size: 11px; margin-top: 4px; font-weight: 500; }
+  .status-ok { color: #1a6b4a; }
+  .status-uploading { color: #888; }
+  .status-error { color: #c0392b; }
+  .fab { position: fixed; bottom: 28px; right: 50%; transform: translateX(50%); max-width: calc(480px - 0px); }
+  .fab-btn { position: absolute; bottom: 0; right: 28px; width: 64px; height: 64px; background: #1a6b4a; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(26,107,74,0.45); }
+  .fab-btn:active { transform: scale(0.95); background: #155a3d; }
+  .fab-btn svg { width: 28px; height: 28px; color: white; }
+  .fab-input { display: none; }
+  .toast { position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%); background: #1a6b4a; color: white; padding: 12px 24px; border-radius: 24px; font-size: 14px; z-index: 999; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.2); }
+  .toast.error { background: #c0392b; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(26,107,74,0.3); border-top-color: #1a6b4a; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 4px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .settings-panel { background: #f9f9f9; border-top: 1px solid #eee; padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
+  .settings-panel p { font-size: 12px; color: #888; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .section-title { font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+  .loading-bar { height: 3px; background: #e0f0e8; border-radius: 2px; overflow: hidden; margin-bottom: 16px; }
+  .loading-bar-inner { height: 100%; background: #1a6b4a; border-radius: 2px; animation: loading 1.5s ease-in-out infinite; }
+  @keyframes loading { 0% { width: 0%; margin-left: 0; } 50% { width: 60%; margin-left: 20%; } 100% { width: 0%; margin-left: 100%; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div>
+      <div class="header-sub">Spese Sanitarie</div>
+      <h1>Ricevute 🏥</h1>
+    </div>
+    <button class="settings-btn" id="settingsBtn">⚙️</button>
+  </div>
+
+  <div class="content" id="mainContent">
+    <!-- Token screen -->
+    <div id="tokenScreen" class="token-screen">
+      <h2>Configura Dropbox</h2>
+      <p>Incolla il tuo <strong>token Dropbox</strong> per salvare le ricevute sanitarie direttamente sul cloud.</p>
+      <label>Token Dropbox</label>
+      <input type="password" id="tokenInput" placeholder="sl.u.XXXXXXXX..." autocomplete="off" />
+      <label>Cartella Dropbox</label>
+      <input type="text" id="folderInput" value="/Ricevute" />
+      <button class="btn-primary" id="saveTokenBtn">✓ Salva e continua</button>
+      <p style="font-size:12px;color:#aaa;text-align:center;">Il token viene salvato solo su questo dispositivo</p>
+    </div>
+
+    <!-- Main screen -->
+    <div id="mainScreen" style="display:none;">
+      <div id="loadingBar" class="loading-bar" style="display:none;"><div class="loading-bar-inner"></div></div>
+      <div class="section-title" id="listTitle">Le tue ricevute</div>
+      <div id="receiptList" class="receipt-list"></div>
+      <div id="emptyState" class="empty-state" style="display:none;">
+        <div class="empty-icon">🧾</div>
+        <p style="font-weight:600;margin-bottom:8px;color:#333;">Nessuna ricevuta</p>
+        <p style="font-size:13px;">Usa il pulsante fotocamera per aggiungere una ricevuta sanitaria</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings panel -->
+  <div id="settingsPanel" class="settings-panel" style="display:none;">
+    <p id="tokenPreview"></p>
+    <button class="btn-danger" id="changeTokenBtn">Cambia</button>
+  </div>
+</div>
+
+<!-- FAB camera button -->
+<div class="fab">
+  <button class="fab-btn" id="cameraBtn" style="display:none;">
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+    </svg>
+  </button>
+</div>
+<input type="file" accept="image/*" capture="environment" class="fab-input" id="fileInput" />
+
+<script>
+let TOKEN = '';
+let FOLDER = '/Ricevute';
+let receipts = [];
+let toastTimer;
+
+const $ = id => document.getElementById(id);
+
+function showToast(msg, isError = false) {
+  let t = document.querySelector('.toast');
+  if (t) t.remove();
+  t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' error' : '');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { if(t.parentNode) t.remove(); }, 3000);
+}
+
+function init() {
+  const saved = localStorage.getItem('dbx_token');
+  const savedFolder = localStorage.getItem('dbx_folder');
+  if (saved) {
+    TOKEN = saved;
+    FOLDER = savedFolder || '/Ricevute';
+    $('folderInput').value = FOLDER;
+    showMain();
+  }
+}
+
+function showMain() {
+  $('tokenScreen').style.display = 'none';
+  $('mainScreen').style.display = 'block';
+  $('cameraBtn').style.display = 'flex';
+  $('tokenPreview').textContent = 'Token: ' + TOKEN.substring(0, 12) + '... | Cartella: ' + FOLDER;
+  loadReceipts();
+}
+
+$('saveTokenBtn').onclick = () => {
+  const t = $('tokenInput').value.trim();
+  const f = $('folderInput').value.trim() || '/Ricevute';
+  if (!t) { showToast('Inserisci il token Dropbox', true); return; }
+  TOKEN = t;
+  FOLDER = f;
+  localStorage.setItem('dbx_token', t);
+  localStorage.setItem('dbx_folder', f);
+  showMain();
+};
+
+$('settingsBtn').onclick = () => {
+  const p = $('settingsPanel');
+  p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+};
+
+$('changeTokenBtn').onclick = () => {
+  if (!confirm('Vuoi cambiare il token Dropbox?')) return;
+  TOKEN = '';
+  localStorage.removeItem('dbx_token');
+  $('tokenInput').value = '';
+  $('tokenScreen').style.display = 'block';
+  $('mainScreen').style.display = 'none';
+  $('cameraBtn').style.display = 'none';
+  $('settingsPanel').style.display = 'none';
+};
+
+$('cameraBtn').onclick = () => $('fileInput').click();
+
+$('fileInput').onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const ext = file.name.split('.').pop() || 'jpg';
+  const name = 'ricevuta_' + ts + '.' + ext;
+  await uploadFile(file, name);
+};
+
+async function uploadFile(file, name) {
+  const path = FOLDER + '/' + name;
+  const id = 'local_' + Date.now();
+  const objectUrl = URL.createObjectURL(file);
+  receipts.unshift({ id, name, path, status: 'uploading', url: objectUrl, date: new Date() });
+  renderList();
+  setLoading(true);
+
+  try {
+    const buf = await file.arrayBuffer();
+    const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + TOKEN,
+        'Dropbox-API-Arg': JSON.stringify({ path, mode: 'add', autorename: true, mute: false }),
+        'Content-Type': 'application/octet-stream'
+      },
+      body: buf
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error_summary || 'Errore upload (' + res.status + ')');
+    }
+    const data = await res.json();
+    const r = receipts.find(x => x.id === id);
+    if (r) { r.status = 'ok'; r.path = data.path_display; r.id = data.id || id; }
+    showToast('✓ Ricevuta salvata su Dropbox!');
+  } catch (err) {
+    const r = receipts.find(x => x.id === id);
+    if (r) r.status = 'error';
+    showToast('Errore: ' + err.message, true);
+  }
+  setLoading(false);
+  renderList();
+}
+
+function setLoading(on) {
+  $('loadingBar').style.display = on ? 'block' : 'none';
+}
+
+async function loadReceipts() {
+  setLoading(true);
+  try {
+    const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + TOKEN,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ path: FOLDER, limit: 100 })
+    });
+    if (res.status === 409) {
+      receipts = [];
+      renderList();
+      setLoading(false);
+      return;
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error_summary || 'Errore ' + res.status);
+    }
+    const data = await res.json();
+    receipts = data.entries
+      .filter(e => e['.tag'] === 'file' && /\.(jpg|jpeg|png|gif|webp)$/i.test(e.name))
+      .map(e => ({ id: e.id, name: e.name, path: e.path_display, status: 'ok', url: null, date: new Date(e.server_modified) }))
+      .sort((a, b) => b.date - a.date);
+    renderList();
+    receipts.slice(0, 10).forEach(r => loadThumb(r));
+  } catch (err) {
+    showToast('Errore caricamento: ' + err.message, true);
+  }
+  setLoading(false);
+}
+
+async function loadThumb(r) {
+  try {
+    const res = await fetch('https://content.dropboxapi.com/2/files/get_thumbnail', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + TOKEN,
+        'Dropbox-API-Arg': JSON.stringify({ path: r.path, format: 'jpeg', size: 'w128h128' })
+      }
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    r.url = URL.createObjectURL(blob);
+    const img = document.querySelector('[data-thumb="' + r.id + '"]');
+    if (img) { img.src = r.url; img.style.display = 'block'; img.previousElementSibling && (img.previousElementSibling.style.display = 'none'); }
+  } catch {}
+}
+
+async function deleteReceipt(rid) {
+  const r = receipts.find(x => x.id == rid);
+  if (!r) return;
+  if (!confirm('Eliminare "' + r.name + '" da Dropbox?')) return;
+  try {
+    setLoading(true);
+    const res = await fetch('https://api.dropboxapi.com/2/files/delete_v2', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + TOKEN,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ path: r.path })
+    });
+    if (!res.ok) throw new Error('Errore eliminazione');
+    receipts = receipts.filter(x => x.id != rid);
+    renderList();
+    showToast('🗑 Ricevuta eliminata');
+  } catch (err) {
+    showToast('Errore: ' + err.message, true);
+  }
+  setLoading(false);
+}
+
+function renderList() {
+  const list = $('receiptList');
+  const empty = $('emptyState');
+  const title = $('listTitle');
+  if (receipts.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    title.textContent = 'Le tue ricevute';
+    return;
+  }
+  empty.style.display = 'none';
+  title.textContent = receipts.length + ' ricevut' + (receipts.length === 1 ? 'a' : 'e');
+  list.innerHTML = receipts.map(r => `
+    <div class="receipt-card">
+      <div class="receipt-thumb">
+        <span style="font-size:24px;${r.url ? 'display:none' : ''}">🧾</span>
+        ${r.url ? `<img data-thumb="${r.id}" src="${r.url}" alt="" style="display:block;" />` : `<img data-thumb="${r.id}" style="display:none;" alt="" />`}
+      </div>
+      <div class="receipt-info">
+        <div class="receipt-name">${r.name}</div>
+        <div class="receipt-date">${r.date.toLocaleDateString('it-IT', {day:'2-digit', month:'long', year:'numeric'})}</div>
+        <div class="receipt-status ${r.status === 'ok' ? 'status-ok' : r.status === 'uploading' ? 'status-uploading' : 'status-error'}">
+          ${r.status === 'ok' ? '✓ Salvata su Dropbox' : r.status === 'uploading' ? '<span class="spinner"></span> Caricamento...' : '✗ Errore — riprova'}
+        </div>
+      </div>
+      ${r.status !== 'uploading' ? `<button class="btn-danger" onclick="deleteReceipt('${r.id}')">🗑</button>` : ''}
+    </div>
+  `).join('');
+}
+
+window.deleteReceipt = deleteReceipt;
+init();
+</script>
+</body>
+</html>
