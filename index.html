@@ -28,8 +28,11 @@
   label { font-size: 12px; color: #888; margin-bottom: -8px; }
   .btn-primary { background: #1a6b4a; color: white; border: none; padding: 14px 24px; border-radius: 12px; font-size: 16px; cursor: pointer; width: 100%; font-weight: 600; }
   .btn-primary:active { background: #155a3d; }
-  .btn-danger { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6c6; padding: 7px 14px; border-radius: 8px; font-size: 14px; cursor: pointer; flex-shrink: 0; }
+  .btn-danger { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6c6; padding: 7px 10px; border-radius: 8px; font-size: 14px; cursor: pointer; flex-shrink: 0; }
   .btn-danger:active { background: #ffe0e0; }
+  .btn-hide { background: #f5f5f5; color: #666; border: 1px solid #ddd; padding: 7px 10px; border-radius: 8px; font-size: 14px; cursor: pointer; flex-shrink: 0; }
+  .btn-hide:active { background: #eee; }
+  .card-actions { display: flex; flex-direction: column; gap: 6px; }
   .empty-state { text-align: center; padding: 60px 24px; color: #999; }
   .empty-icon { width: 72px; height: 72px; background: #f0f0f0; border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 32px; }
   .receipt-list { display: flex; flex-direction: column; gap: 12px; }
@@ -293,6 +296,12 @@ async function deleteReceipt(rid) {
   setLoading(false);
 }
 
+function hideReceipt(rid) {
+  receipts = receipts.filter(x => x.id != rid);
+  renderList();
+  showToast('👁 Nascosta dalla lista (resta su Dropbox)');
+}
+
 function renderList() {
   const list = $('receiptList'), empty = $('emptyState'), title = $('listTitle');
   if (receipts.length === 0) { list.innerHTML = ''; empty.style.display = 'block'; title.textContent = 'Le tue ricevute'; return; }
@@ -308,19 +317,4 @@ function renderList() {
         <div class="receipt-name">${r.name}</div>
         <div class="receipt-date">${r.date.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})}</div>
         <div class="receipt-status ${r.status==='ok'?'status-ok':r.status==='uploading'?'status-uploading':'status-error'}">
-          ${r.status==='ok'?'✓ Salvata su Dropbox':r.status==='uploading'?'<span class="spinner"></span> Caricamento...':'✗ Errore — riprova'}
-        </div>
-      </div>
-      ${r.status!=='uploading'?`<button class="btn-danger" onclick="deleteReceipt('${r.id}')">🗑</button>`:''}
-    </div>`).join('');
-}
-
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
-}
-
-window.deleteReceipt = deleteReceipt;
-init();
-</script>
-</body>
-</html>
+          ${r.status==='ok'?'✓ Salvata su Dropbox':
