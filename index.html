@@ -7,7 +7,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Spese Sanitarie" />
+<meta name="theme-color" content="#1a6b4a" />
 <title>Spese Sanitarie</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon192.png" />
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; min-height: 100vh; }
@@ -40,8 +43,8 @@
   .status-ok { color: #1a6b4a; }
   .status-uploading { color: #888; }
   .status-error { color: #c0392b; }
-  .fab { position: fixed; bottom: 28px; right: 50%; transform: translateX(50%); max-width: calc(480px - 0px); }
-  .fab-btn { position: absolute; bottom: 0; right: 28px; width: 64px; height: 64px; background: #1a6b4a; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(26,107,74,0.45); }
+  .fab-btn { position: fixed; bottom: 28px; right: calc(50% - 200px); width: 64px; height: 64px; background: #1a6b4a; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(26,107,74,0.45); z-index: 50; }
+  @media (max-width: 480px) { .fab-btn { right: 20px; } }
   .fab-btn:active { transform: scale(0.95); background: #155a3d; }
   .fab-btn svg { width: 28px; height: 28px; color: white; }
   .fab-input { display: none; }
@@ -55,6 +58,9 @@
   .loading-bar { height: 3px; background: #e0f0e8; border-radius: 2px; overflow: hidden; margin-bottom: 16px; }
   .loading-bar-inner { height: 100%; background: #1a6b4a; border-radius: 2px; animation: loading 1.5s ease-in-out infinite; }
   @keyframes loading { 0% { width: 0%; margin-left: 0; } 50% { width: 60%; margin-left: 20%; } 100% { width: 0%; margin-left: 100%; } }
+  .install-banner { background: #e8f5ee; border: 1px solid #b2ddc4; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+  .install-banner p { font-size: 13px; color: #1a6b4a; flex: 1; }
+  .install-banner button { background: #1a6b4a; color: white; border: none; padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -68,7 +74,6 @@
   </div>
 
   <div class="content" id="mainContent">
-    <!-- Token screen -->
     <div id="tokenScreen" class="token-screen">
       <h2>Configura Dropbox</h2>
       <p>Incolla il tuo <strong>token Dropbox</strong> per salvare le ricevute sanitarie direttamente sul cloud.</p>
@@ -80,8 +85,11 @@
       <p style="font-size:12px;color:#aaa;text-align:center;">Il token viene salvato solo su questo dispositivo</p>
     </div>
 
-    <!-- Main screen -->
     <div id="mainScreen" style="display:none;">
+      <div id="installBanner" class="install-banner" style="display:none;">
+        <p>📱 Aggiungi alla schermata home per usarla come app!</p>
+        <button id="installBtn">Installa</button>
+      </div>
       <div id="loadingBar" class="loading-bar" style="display:none;"><div class="loading-bar-inner"></div></div>
       <div class="section-title" id="listTitle">Le tue ricevute</div>
       <div id="receiptList" class="receipt-list"></div>
@@ -93,22 +101,18 @@
     </div>
   </div>
 
-  <!-- Settings panel -->
   <div id="settingsPanel" class="settings-panel" style="display:none;">
     <p id="tokenPreview"></p>
     <button class="btn-danger" id="changeTokenBtn">Cambia</button>
   </div>
 </div>
 
-<!-- FAB camera button -->
-<div class="fab">
-  <button class="fab-btn" id="cameraBtn" style="display:none;">
-    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-    </svg>
-  </button>
-</div>
+<button class="fab-btn" id="cameraBtn" style="display:none;">
+  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+  </svg>
+</button>
 <input type="file" accept="image/*" capture="environment" class="fab-input" id="fileInput" />
 
 <script>
@@ -116,8 +120,25 @@ let TOKEN = '';
 let FOLDER = '/Ricevute';
 let receipts = [];
 let toastTimer;
+let deferredPrompt;
 
 const $ = id => document.getElementById(id);
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if ($('mainScreen').style.display !== 'none') {
+    $('installBanner').style.display = 'flex';
+  }
+});
+
+$('installBtn') && ($('installBtn').onclick = async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  if (outcome === 'accepted') $('installBanner').style.display = 'none';
+  deferredPrompt = null;
+});
 
 function showToast(msg, isError = false) {
   let t = document.querySelector('.toast');
@@ -145,7 +166,8 @@ function showMain() {
   $('tokenScreen').style.display = 'none';
   $('mainScreen').style.display = 'block';
   $('cameraBtn').style.display = 'flex';
-  $('tokenPreview').textContent = 'Token: ' + TOKEN.substring(0, 12) + '... | Cartella: ' + FOLDER;
+  $('tokenPreview').textContent = 'Token: ' + TOKEN.substring(0, 12) + '... | ' + FOLDER;
+  if (deferredPrompt) $('installBanner').style.display = 'flex';
   loadReceipts();
 }
 
@@ -153,8 +175,7 @@ $('saveTokenBtn').onclick = () => {
   const t = $('tokenInput').value.trim();
   const f = $('folderInput').value.trim() || '/Ricevute';
   if (!t) { showToast('Inserisci il token Dropbox', true); return; }
-  TOKEN = t;
-  FOLDER = f;
+  TOKEN = t; FOLDER = f;
   localStorage.setItem('dbx_token', t);
   localStorage.setItem('dbx_folder', f);
   showMain();
@@ -184,8 +205,7 @@ $('fileInput').onchange = async (e) => {
   e.target.value = '';
   const ts = new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
   const ext = file.name.split('.').pop() || 'jpg';
-  const name = 'ricevuta_' + ts + '.' + ext;
-  await uploadFile(file, name);
+  await uploadFile(file, 'ricevuta_' + ts + '.' + ext);
 };
 
 async function uploadFile(file, name) {
@@ -193,9 +213,7 @@ async function uploadFile(file, name) {
   const id = 'local_' + Date.now();
   const objectUrl = URL.createObjectURL(file);
   receipts.unshift({ id, name, path, status: 'uploading', url: objectUrl, date: new Date() });
-  renderList();
-  setLoading(true);
-
+  renderList(); setLoading(true);
   try {
     const buf = await file.arrayBuffer();
     const res = await fetch('https://content.dropboxapi.com/2/files/upload', {
@@ -207,10 +225,7 @@ async function uploadFile(file, name) {
       },
       body: buf
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error_summary || 'Errore upload (' + res.status + ')');
-    }
+    if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error_summary || 'Errore ' + res.status); }
     const data = await res.json();
     const r = receipts.find(x => x.id === id);
     if (r) { r.status = 'ok'; r.path = data.path_display; r.id = data.id || id; }
@@ -220,35 +235,21 @@ async function uploadFile(file, name) {
     if (r) r.status = 'error';
     showToast('Errore: ' + err.message, true);
   }
-  setLoading(false);
-  renderList();
+  setLoading(false); renderList();
 }
 
-function setLoading(on) {
-  $('loadingBar').style.display = on ? 'block' : 'none';
-}
+function setLoading(on) { $('loadingBar').style.display = on ? 'block' : 'none'; }
 
 async function loadReceipts() {
   setLoading(true);
   try {
     const res = await fetch('https://api.dropboxapi.com/2/files/list_folder', {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + TOKEN,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: FOLDER, limit: 100 })
     });
-    if (res.status === 409) {
-      receipts = [];
-      renderList();
-      setLoading(false);
-      return;
-    }
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error_summary || 'Errore ' + res.status);
-    }
+    if (res.status === 409) { receipts = []; renderList(); setLoading(false); return; }
+    if (!res.ok) { const err = await res.json().catch(()=>({})); throw new Error(err.error_summary || 'Errore ' + res.status); }
     const data = await res.json();
     receipts = data.entries
       .filter(e => e['.tag'] === 'file' && /\.(jpg|jpeg|png|gif|webp)$/i.test(e.name))
@@ -256,9 +257,7 @@ async function loadReceipts() {
       .sort((a, b) => b.date - a.date);
     renderList();
     receipts.slice(0, 10).forEach(r => loadThumb(r));
-  } catch (err) {
-    showToast('Errore caricamento: ' + err.message, true);
-  }
+  } catch (err) { showToast('Errore: ' + err.message, true); }
   setLoading(false);
 }
 
@@ -266,71 +265,58 @@ async function loadThumb(r) {
   try {
     const res = await fetch('https://content.dropboxapi.com/2/files/get_thumbnail', {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + TOKEN,
-        'Dropbox-API-Arg': JSON.stringify({ path: r.path, format: 'jpeg', size: 'w128h128' })
-      }
+      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Dropbox-API-Arg': JSON.stringify({ path: r.path, format: 'jpeg', size: 'w128h128' }) }
     });
     if (!res.ok) return;
     const blob = await res.blob();
     r.url = URL.createObjectURL(blob);
     const img = document.querySelector('[data-thumb="' + r.id + '"]');
-    if (img) { img.src = r.url; img.style.display = 'block'; img.previousElementSibling && (img.previousElementSibling.style.display = 'none'); }
+    if (img) { img.src = r.url; img.style.display = 'block'; const icon = img.previousElementSibling; if(icon) icon.style.display = 'none'; }
   } catch {}
 }
 
 async function deleteReceipt(rid) {
   const r = receipts.find(x => x.id == rid);
-  if (!r) return;
-  if (!confirm('Eliminare "' + r.name + '" da Dropbox?')) return;
+  if (!r || !confirm('Eliminare "' + r.name + '" da Dropbox?')) return;
   try {
     setLoading(true);
     const res = await fetch('https://api.dropboxapi.com/2/files/delete_v2', {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + TOKEN,
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: r.path })
     });
     if (!res.ok) throw new Error('Errore eliminazione');
     receipts = receipts.filter(x => x.id != rid);
     renderList();
     showToast('🗑 Ricevuta eliminata');
-  } catch (err) {
-    showToast('Errore: ' + err.message, true);
-  }
+  } catch (err) { showToast('Errore: ' + err.message, true); }
   setLoading(false);
 }
 
 function renderList() {
-  const list = $('receiptList');
-  const empty = $('emptyState');
-  const title = $('listTitle');
-  if (receipts.length === 0) {
-    list.innerHTML = '';
-    empty.style.display = 'block';
-    title.textContent = 'Le tue ricevute';
-    return;
-  }
+  const list = $('receiptList'), empty = $('emptyState'), title = $('listTitle');
+  if (receipts.length === 0) { list.innerHTML = ''; empty.style.display = 'block'; title.textContent = 'Le tue ricevute'; return; }
   empty.style.display = 'none';
   title.textContent = receipts.length + ' ricevut' + (receipts.length === 1 ? 'a' : 'e');
   list.innerHTML = receipts.map(r => `
     <div class="receipt-card">
       <div class="receipt-thumb">
         <span style="font-size:24px;${r.url ? 'display:none' : ''}">🧾</span>
-        ${r.url ? `<img data-thumb="${r.id}" src="${r.url}" alt="" style="display:block;" />` : `<img data-thumb="${r.id}" style="display:none;" alt="" />`}
+        <img data-thumb="${r.id}" src="${r.url||''}" alt="" style="display:${r.url?'block':'none'};" />
       </div>
       <div class="receipt-info">
         <div class="receipt-name">${r.name}</div>
-        <div class="receipt-date">${r.date.toLocaleDateString('it-IT', {day:'2-digit', month:'long', year:'numeric'})}</div>
-        <div class="receipt-status ${r.status === 'ok' ? 'status-ok' : r.status === 'uploading' ? 'status-uploading' : 'status-error'}">
-          ${r.status === 'ok' ? '✓ Salvata su Dropbox' : r.status === 'uploading' ? '<span class="spinner"></span> Caricamento...' : '✗ Errore — riprova'}
+        <div class="receipt-date">${r.date.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})}</div>
+        <div class="receipt-status ${r.status==='ok'?'status-ok':r.status==='uploading'?'status-uploading':'status-error'}">
+          ${r.status==='ok'?'✓ Salvata su Dropbox':r.status==='uploading'?'<span class="spinner"></span> Caricamento...':'✗ Errore — riprova'}
         </div>
       </div>
-      ${r.status !== 'uploading' ? `<button class="btn-danger" onclick="deleteReceipt('${r.id}')">🗑</button>` : ''}
-    </div>
-  `).join('');
+      ${r.status!=='uploading'?`<button class="btn-danger" onclick="deleteReceipt('${r.id}')">🗑</button>`:''}
+    </div>`).join('');
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
 window.deleteReceipt = deleteReceipt;
