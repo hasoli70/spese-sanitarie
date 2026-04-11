@@ -1,0 +1,24 @@
+{
+  "name": "Spese Sanitarie",
+  "short_name": "Ricevute",
+  "description": "Fotografa e salva le ricevute sanitarie su Dropbox",
+  "start_url": "/spese-sanitarie/",
+  "display": "standalone",
+  "background_color": "#1a6b4a",
+  "theme_color": "#1a6b4a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='40' fill='%231a6b4a'/%3E%3Crect x='56' y='40' width='80' height='100' rx='8' fill='white' opacity='0.95'/%3E%3Crect x='68' y='60' width='56' height='6' rx='3' fill='%231a6b4a' opacity='0.4'/%3E%3Crect x='68' y='74' width='56' height='6' rx='3' fill='%231a6b4a' opacity='0.4'/%3E%3Crect x='68' y='88' width='40' height='6' rx='3' fill='%231a6b4a' opacity='0.4'/%3E%3Crect x='84' y='108' width='8' height='24' rx='4' fill='%231a6b4a'/%3E%3Crect x='76' y='116' width='24' height='8' rx='4' fill='%231a6b4a'/%3E%3Crect x='44' y='120' width='104' height='32' rx='8' fill='%231a6b4a'/%3E%3Ctext x='96' y='141' font-family='Arial' font-size='14' font-weight='bold' fill='white' text-anchor='middle'%3ERICEVUTE%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%231a6b4a'/%3E%3Crect x='136' y='80' width='240' height='280' rx='20' fill='white' opacity='0.95'/%3E%3Crect x='168' y='130' width='176' height='16' rx='8' fill='%231a6b4a' opacity='0.4'/%3E%3Crect x='168' y='160' width='176' height='16' rx='8' fill='%231a6b4a' opacity='0.4'/%3E%3Crect x='168' y='190' width='120' height='16' rx='8' fill='%231a6b4a' opacity='0.4'/%3E%3Crect x='232' y='220' width='24' height='72' rx='12' fill='%231a6b4a'/%3E%3Crect x='208' y='244' width='72' height='24' rx='12' fill='%231a6b4a'/%3E%3Crect x='100' y='340' width='312' height='90' rx='20' fill='%231a6b4a'/%3E%3Ctext x='256' y='396' font-family='Arial' font-size='36' font-weight='bold' fill='white' text-anchor='middle'%3ERICEVUTE%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
