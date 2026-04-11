@@ -174,7 +174,7 @@ function showMain() {
   loadReceipts();
 }
 
-function salva() {
+window.salva = function() {
   const t = document.getElementById('tokenInput').value.trim();
   const f = document.getElementById('folderInput').value.trim() || '/Ricevute';
   if (!t) { showToast('Inserisci il token Dropbox', true); return; }
@@ -182,9 +182,7 @@ function salva() {
   localStorage.setItem('dbx_token', t);
   localStorage.setItem('dbx_folder', f);
   showMain();
-}
-
-$('saveTokenBtn') && ($('saveTokenBtn').onclick = salva);
+};
 
 $('settingsBtn').onclick = () => {
   const p = $('settingsPanel');
@@ -318,4 +316,25 @@ function renderList() {
       <div class="receipt-info">
         <div class="receipt-name">${r.name}</div>
         <div class="receipt-date">${r.date.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})}</div>
-        <div class="receipt-status ${r.status==='ok'?'status-ok':r.status==='uploading'?'st
+        <div class="receipt-status ${r.status==='ok'?'status-ok':r.status==='uploading'?'status-uploading':'status-error'}">
+          ${r.status==='ok'?'✓ Salvata su Dropbox':r.status==='uploading'?'<span class="spinner"></span> Caricamento...':'✗ Errore — riprova'}
+        </div>
+      </div>
+      ${r.status!=='uploading'?`
+        <div class="card-actions">
+          <button class="btn-hide" onclick="hideReceipt('${r.id}')" title="Nascondi dalla lista">👁</button>
+          <button class="btn-danger" onclick="deleteReceipt('${r.id}')" title="Elimina da Dropbox">🗑</button>
+        </div>`:''}
+    </div>`).join('');
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+}
+
+window.deleteReceipt = deleteReceipt;
+window.hideReceipt = hideReceipt;
+init();
+</script>
+</body>
+</html>
