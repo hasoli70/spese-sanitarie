@@ -200,20 +200,92 @@ function showMain(){
   getUserInfo();loadReceipts();
 }
 
+async function imageToPdf(file){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      const w=img.naturalWidth,h=img.naturalHeight;
+      // PDF page size: fit image keeping aspect ratio within A4
+      const a4w=595,a4h=842;
+      const scale=Math.min(a4w/w,a4h/h,1);
+      const pw=Math.round(w*scale),ph=Math.round(h*scale);
+      const ox=Math.round((a4w-pw)/2),oy=Math.round((a4h-ph)/2);
+      // Draw image to canvas
+      const canvas=document.createElement('canvas');
+      canvas.width=a4w;canvas.height=a4h;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='white';ctx.fillRect(0,0,a4w,a4h);
+      ctx.drawImage(img,ox,oy,pw,ph);
+      URL.revokeObjectURL(url);
+      const jpegData=canvas.toDataURL('image/jpeg',0.92).split(',')[1];
+      // Build minimal PDF manually
+      const imgBytes=atob(jpegData);
+      const imgLen=imgBytes.length;
+      const nl='\n';
+      let pdf='%PDF-1.4'+nl;
+      const offsets=[];
+      // Object 1: catalog
+      offsets.push(pdf.length);
+      pdf+='1 0 obj<</Type /Catalog /Pages 2 0 R>>endobj'+nl;
+      // Object 2: pages
+      offsets.push(pdf.length);
+      pdf+='2 0 obj<</Type /Pages /Kids [3 0 R] /Count 1>>endobj'+nl;
+      // Object 3: page
+      offsets.push(pdf.length);
+      pdf+='3 0 obj<</Type /Page /Parent 2 0 R /MediaBox [0 0 '+a4w+' '+a4h+'] /Contents 4 0 R /Resources <</XObject <</Im1 5 0 R>>>>>>endobj'+nl;
+      // Object 4: content stream
+      const stream='q '+pw+' 0 0 '+ph+' '+ox+' '+oy+' cm /Im1 Do Q';
+      offsets.push(pdf.length);
+      pdf+='4 0 obj<</Length '+stream.length+'>>'+nl+'stream'+nl+stream+nl+'endstream endobj'+nl;
+      // Object 5: image XObject
+      offsets.push(pdf.length);
+      const imgHeader='5 0 obj<</Type /XObject /Subtype /Image /Width '+w+' /Height '+h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+imgLen+'>>'+nl+'stream'+nl;
+      const xrefPos=pdf.length+imgHeader.length+imgLen+'\nendstream endobj\n'.length;
+      pdf+=imgHeader;
+      // Convert to Uint8Array for binary
+      const enc=new TextEncoder();
+      const pdfBytes1=enc.encode(pdf);
+      const imgArr=new Uint8Array(imgLen);
+      for(let i=0;i<imgLen;i++)imgArr[i]=imgBytes.charCodeAt(i);
+      const trailer=enc.encode('\nendstream endobj\n');
+      // XRef table
+      let xref='xref\n0 6\n0000000000 65535 f \n';
+      offsets.forEach(o=>{ xref+=String(o).padStart(10,'0')+' 00000 n \n'; });
+      const xrefStr=xref+'trailer<</Size 6 /Root 1 0 R>>\nstartxref\n'+xrefPos+'\n%%EOF';
+      const xrefBytes=enc.encode(xrefStr);
+      // Combine all
+      const total=new Uint8Array(pdfBytes1.length+imgArr.length+trailer.length+xrefBytes.length);
+      let pos=0;
+      total.set(pdfBytes1,pos);pos+=pdfBytes1.length;
+      total.set(imgArr,pos);pos+=imgArr.length;
+      total.set(trailer,pos);pos+=trailer.length;
+      total.set(xrefBytes,pos);
+      resolve(new Blob([total],{type:'application/pdf'}));
+    };
+    img.onerror=reject;
+    img.src=url;
+  });
+}
+
 async function handleFile(e){
   const file=e.target.files[0];if(!file)return;e.target.value='';
   const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-  const ext=file.name.split('.').pop()||'jpg';
-  await uploadFile(file,'ricevuta_'+ts+'.'+ext);
+  showToast('⏳ Conversione in PDF...');
+  try{
+    const pdfBlob=await imageToPdf(file);
+    const pdfFile=new File([pdfBlob],'ricevuta_'+ts+'.pdf',{type:'application/pdf'});
+    await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(file));
+  }catch(err){showToast('Errore PDF: '+err.message,true);}
 }
 
 async function doUpload(buf,path){
   return fetch('https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':JSON.stringify({path,mode:'add',autorename:true,mute:false}),'Content-Type':'application/octet-stream'},body:buf});
 }
 
-async function uploadFile(file,name){
+async function uploadFile(file,name,previewUrl){
   const path=FOLDER+'/'+name,id='local_'+Date.now();
-  receipts.unshift({id,name,path,status:'uploading',url:URL.createObjectURL(file),date:new Date()});
+  receipts.unshift({id,name,path,status:'uploading',url:previewUrl||URL.createObjectURL(file),date:new Date()});
   renderList();setLoading(true);
   try{
     const buf=await file.arrayBuffer();
@@ -272,8 +344,10 @@ function renderList(){
   list.innerHTML=receipts.map(r=>`
     <div class="receipt-card">
       <div class="receipt-thumb">
-        <span style="font-size:24px;${r.url?'display:none':''}">🧾</span>
-        <img data-thumb="${r.id}" src="${r.url||''}" alt="" style="display:${r.url?'block':'none'};" />
+        ${r.name.endsWith('.pdf')
+          ? `<span style="font-size:28px">📄</span>`
+          : `<span style="font-size:24px;${r.url?'display:none':''}">🧾</span><img data-thumb="${r.id}" src="${r.url||''}" alt="" style="display:${r.url?'block':'none'};" />`
+        }
       </div>
       <div class="receipt-info">
         <div class="receipt-name">${r.name}</div>
