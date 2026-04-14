@@ -350,6 +350,16 @@ async function handleFile(e){
   }catch(err){showToast('Errore PDF: '+err.message,true);}
 }
 
+async function createFolderIfNeeded(folderPath){
+  try{
+    await fetch('https://api.dropboxapi.com/2/files/create_folder_v2',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},
+      body:JSON.stringify({path:folderPath,autorename:false})
+    });
+  }catch{}
+}
+
 async function doUpload(buf,path){
   return fetch('https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':JSON.stringify({path,mode:'add',autorename:true,mute:false}),'Content-Type':'application/octet-stream'},body:buf});
 }
@@ -359,6 +369,7 @@ async function uploadFile(file,name,previewUrl){
   receipts.unshift({id,name,path,status:'uploading',url:previewUrl||URL.createObjectURL(file),date:new Date()});
   renderList();setLoading(true);
   try{
+    await createFolderIfNeeded(FOLDER);
     const buf=await file.arrayBuffer();
     let res=await doUpload(buf,path);
     if(res.status===401){const ok=await refreshToken();if(!ok){logout();return;}res=await doUpload(buf,path);}
