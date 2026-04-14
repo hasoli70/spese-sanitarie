@@ -105,7 +105,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<button class="fab-btn" id="cameraBtn" style="display:none" onclick="document.getElementById('fileInput').click()">
+<!-- Category modal -->
+<div id="catModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center;">
+  <div style="background:white;width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:24px 20px 40px;max-height:85vh;overflow-y:auto;">
+    <div style="font-size:16px;font-weight:700;color:#111;margin-bottom:6px;">📁 Dove salvare la ricevuta?</div>
+    <div style="font-size:13px;color:#888;margin-bottom:20px;">Seleziona la categoria</div>
+    <div id="catList" style="display:flex;flex-direction:column;gap:8px;"></div>
+    <button onclick="closeCatModal()" style="width:100%;margin-top:16px;padding:12px;background:#f5f5f5;border:none;border-radius:10px;font-size:15px;cursor:pointer;color:#666;">Annulla</button>
+  </div>
+</div>
+
+<button class="fab-btn" id="cameraBtn" style="display:none" onclick="showCatModal()">
   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -116,8 +126,56 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 const APP_KEY='o4uhth8m0cz03bq';
 const REDIRECT_URI=location.origin+location.pathname;
-let TOKEN='',FOLDER='/Ricevute',receipts=[],toastTimer;
+let TOKEN='',FOLDER='/Scontrini',receipts=[],toastTimer,pendingFile=null;
 const $=id=>document.getElementById(id);
+
+const CATEGORIES=[
+  {label:'🏥 Medico — Oliver',    folder:'/Scontrini/Medico/Oliver'},
+  {label:'🏥 Medico — Ilaria',    folder:'/Scontrini/Medico/Ilaria'},
+  {label:'🏥 Medico — Niccolò',   folder:'/Scontrini/Medico/Niccolo'},
+  {label:'🏥 Medico — Mattia',    folder:'/Scontrini/Medico/Mattia'},
+  {label:'💊 Farmacia — Oliver',  folder:'/Scontrini/Farmacia/Oliver'},
+  {label:'💊 Farmacia — Ilaria',  folder:'/Scontrini/Farmacia/Ilaria'},
+  {label:'💊 Farmacia — Niccolò', folder:'/Scontrini/Farmacia/Niccolo'},
+  {label:'💊 Farmacia — Mattia',  folder:'/Scontrini/Farmacia/Mattia'},
+  {label:'🐾 Veterinario',         folder:'/Scontrini/Veterinario'},
+  {label:'🎓 Scuola',              folder:'/Scontrini/Scuola'},
+  {label:'🚗 Trasporto',           folder:'/Scontrini/Trasporto'},
+  {label:'🛡️ Assicurazioni',       folder:'/Scontrini/Assicurazioni'},
+  {label:'📋 CUD',                 folder:'/Scontrini/CUD'},
+];
+
+function showCatModal(){
+  const list=$('catList');
+  list.innerHTML=CATEGORIES.map((c,i)=>`
+    <button onclick="selectCategory(${i})" style="width:100%;padding:14px 16px;background:#f9f9f9;border:1px solid #eee;border-radius:12px;font-size:15px;cursor:pointer;text-align:left;color:#111;font-family:inherit;">
+      ${c.label}
+    </button>`).join('');
+  $('catModal').style.display='flex';
+}
+
+function closeCatModal(){
+  $('catModal').style.display='none';
+  pendingFile=null;
+}
+
+function selectCategory(idx){
+  $('catModal').style.display='none';
+  const cat=CATEGORIES[idx];
+  FOLDER=cat.folder;
+  $('fileInput').click();
+}
+
+async function handleFile(e){
+  const file=e.target.files[0];if(!file)return;e.target.value='';
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  showToast('⏳ Conversione in PDF...');
+  try{
+    const pdfBlob=await imageToPdf(file);
+    const pdfFile=new File([pdfBlob],'ricevuta_'+ts+'.pdf',{type:'application/pdf'});
+    await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(file));
+  }catch(err){showToast('Errore PDF: '+err.message,true);}
+}
 
 async function sha256(plain){
   const data=new TextEncoder().encode(plain);
@@ -196,7 +254,6 @@ async function getUserInfo(){
 function showMain(){
   $('loginScreen').style.display='none';$('mainScreen').style.display='block';
   $('cameraBtn').style.display='flex';$('settingsBtn').style.display='flex';
-  FOLDER=localStorage.getItem('dbx_folder')||'/Ricevute';$('folderInput').value=FOLDER;
   getUserInfo();loadReceipts();
 }
 
@@ -302,7 +359,7 @@ async function uploadFile(file,name,previewUrl){
 async function loadReceipts(){
   setLoading(true);
   try{
-    const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:FOLDER,limit:100})});
+    const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/Scontrini',limit:100,recursive:true})});
     if(res.status===409){receipts=[];renderList();setLoading(false);return;}
     if(res.status===401){const ok=await refreshToken();if(ok){loadReceipts();return;}logout();return;}
     if(!res.ok)throw new Error('Errore '+res.status);
