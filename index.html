@@ -126,13 +126,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 const APP_KEY='o4uhth8m0cz03bq';
 const REDIRECT_URI=location.origin+location.pathname;
-let TOKEN='',FOLDER='/Ricevute_2026',receipts=[],toastTimer,pendingFile=null,selectedYear='2026';
+let TOKEN='',FOLDER='/SpeseFiscali_2026',receipts=[],toastTimer,pendingFile=null,selectedYear='2026';
 const $=id=>document.getElementById(id);
 
 const YEARS=['2025','2026'];
 
 function getCategories(year){
-  const base='/Ricevute_'+year;
+  const base='/SpeseFiscali_'+year;
   return [
     {label:'🏥 Medico — Oliver',    folder:base+'/Medico/Oliver'},
     {label:'🏥 Medico — Ilaria',    folder:base+'/Medico/Ilaria'},
@@ -386,7 +386,7 @@ async function loadReceipts(){
   receipts=[];
   try{
     for(const year of YEARS){
-      const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/Ricevute_'+year,limit:100,recursive:true})});
+      const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/SpeseFiscali_'+year,limit:100,recursive:true})});
       if(res.status===409)continue;
       if(res.status===401){const ok=await refreshToken();if(ok){loadReceipts();return;}logout();return;}
       if(!res.ok)continue;
