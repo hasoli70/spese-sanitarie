@@ -126,23 +126,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 const APP_KEY='o4uhth8m0cz03bq';
 const REDIRECT_URI=location.origin+location.pathname;
-let TOKEN='',FOLDER='/Scontrini',receipts=[],toastTimer,pendingFile=null;
+let TOKEN='',FOLDER='/Ricevute',receipts=[],toastTimer,pendingFile=null;
 const $=id=>document.getElementById(id);
 
 const CATEGORIES=[
-  {label:'🏥 Medico — Oliver',    folder:'/Scontrini/Medico/Oliver'},
-  {label:'🏥 Medico — Ilaria',    folder:'/Scontrini/Medico/Ilaria'},
-  {label:'🏥 Medico — Niccolò',   folder:'/Scontrini/Medico/Niccolo'},
-  {label:'🏥 Medico — Mattia',    folder:'/Scontrini/Medico/Mattia'},
-  {label:'💊 Farmacia — Oliver',  folder:'/Scontrini/Farmacia/Oliver'},
-  {label:'💊 Farmacia — Ilaria',  folder:'/Scontrini/Farmacia/Ilaria'},
-  {label:'💊 Farmacia — Niccolò', folder:'/Scontrini/Farmacia/Niccolo'},
-  {label:'💊 Farmacia — Mattia',  folder:'/Scontrini/Farmacia/Mattia'},
-  {label:'🐾 Veterinario',         folder:'/Scontrini/Veterinario'},
-  {label:'🎓 Scuola',              folder:'/Scontrini/Scuola'},
-  {label:'🚗 Trasporto',           folder:'/Scontrini/Trasporto'},
-  {label:'🛡️ Assicurazioni',       folder:'/Scontrini/Assicurazioni'},
-  {label:'📋 CUD',                 folder:'/Scontrini/CUD'},
+  {label:'🏥 Medico — Oliver',    folder:'/Ricevute/Medico/Oliver'},
+  {label:'🏥 Medico — Ilaria',    folder:'/Ricevute/Medico/Ilaria'},
+  {label:'🏥 Medico — Niccolò',   folder:'/Ricevute/Medico/Niccolo'},
+  {label:'🏥 Medico — Mattia',    folder:'/Ricevute/Medico/Mattia'},
+  {label:'💊 Farmacia — Oliver',  folder:'/Ricevute/Farmacia/Oliver'},
+  {label:'💊 Farmacia — Ilaria',  folder:'/Ricevute/Farmacia/Ilaria'},
+  {label:'💊 Farmacia — Niccolò', folder:'/Ricevute/Farmacia/Niccolo'},
+  {label:'💊 Farmacia — Mattia',  folder:'/Ricevute/Farmacia/Mattia'},
+  {label:'🐾 Veterinario',         folder:'/Ricevute/Veterinario'},
+  {label:'🎓 Scuola',              folder:'/Ricevute/Scuola'},
+  {label:'🚗 Trasporto',           folder:'/Ricevute/Trasporto'},
+  {label:'🛡️ Assicurazioni',       folder:'/Ricevute/Assicurazioni'},
+  {label:'📋 CUD',                 folder:'/Ricevute/CUD'},
 ];
 
 function showCatModal(){
@@ -359,7 +359,7 @@ async function uploadFile(file,name,previewUrl){
 async function loadReceipts(){
   setLoading(true);
   try{
-    const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/Scontrini',limit:100,recursive:true})});
+    const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/Ricevute',limit:100,recursive:true})});
     if(res.status===409){receipts=[];renderList();setLoading(false);return;}
     if(res.status===401){const ok=await refreshToken();if(ok){loadReceipts();return;}logout();return;}
     if(!res.ok)throw new Error('Errore '+res.status);
