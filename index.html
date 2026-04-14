@@ -126,32 +126,46 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 const APP_KEY='o4uhth8m0cz03bq';
 const REDIRECT_URI=location.origin+location.pathname;
-let TOKEN='',FOLDER='/Ricevute',receipts=[],toastTimer,pendingFile=null;
+let TOKEN='',FOLDER='/Ricevute_2026',receipts=[],toastTimer,pendingFile=null,selectedYear='2026';
 const $=id=>document.getElementById(id);
 
-const CATEGORIES=[
-  {label:'🏥 Medico — Oliver',    folder:'/Ricevute/Medico/Oliver'},
-  {label:'🏥 Medico — Ilaria',    folder:'/Ricevute/Medico/Ilaria'},
-  {label:'🏥 Medico — Niccolò',   folder:'/Ricevute/Medico/Niccolo'},
-  {label:'🏥 Medico — Mattia',    folder:'/Ricevute/Medico/Mattia'},
-  {label:'💊 Farmacia — Oliver',  folder:'/Ricevute/Farmacia/Oliver'},
-  {label:'💊 Farmacia — Ilaria',  folder:'/Ricevute/Farmacia/Ilaria'},
-  {label:'💊 Farmacia — Niccolò', folder:'/Ricevute/Farmacia/Niccolo'},
-  {label:'💊 Farmacia — Mattia',  folder:'/Ricevute/Farmacia/Mattia'},
-  {label:'🐾 Veterinario',         folder:'/Ricevute/Veterinario'},
-  {label:'🎓 Scuola',              folder:'/Ricevute/Scuola'},
-  {label:'🚗 Trasporto',           folder:'/Ricevute/Trasporto'},
-  {label:'🛡️ Assicurazioni',       folder:'/Ricevute/Assicurazioni'},
-  {label:'📋 CUD',                 folder:'/Ricevute/CUD'},
-];
+const YEARS=['2025','2026'];
+
+function getCategories(year){
+  const base='/Ricevute_'+year;
+  return [
+    {label:'🏥 Medico — Oliver',    folder:base+'/Medico/Oliver'},
+    {label:'🏥 Medico — Ilaria',    folder:base+'/Medico/Ilaria'},
+    {label:'🏥 Medico — Niccolò',   folder:base+'/Medico/Niccolo'},
+    {label:'🏥 Medico — Mattia',    folder:base+'/Medico/Mattia'},
+    {label:'💊 Farmacia — Oliver',  folder:base+'/Farmacia/Oliver'},
+    {label:'💊 Farmacia — Ilaria',  folder:base+'/Farmacia/Ilaria'},
+    {label:'💊 Farmacia — Niccolò', folder:base+'/Farmacia/Niccolo'},
+    {label:'💊 Farmacia — Mattia',  folder:base+'/Farmacia/Mattia'},
+    {label:'🐾 Veterinario',         folder:base+'/Veterinario'},
+    {label:'🎓 Scuola',              folder:base+'/Scuola'},
+    {label:'🚗 Trasporto',           folder:base+'/Trasporto'},
+    {label:'🛡️ Assicurazioni',       folder:base+'/Assicurazioni'},
+    {label:'📋 CUD',                 folder:base+'/CUD'},
+  ];
+}
 
 function showCatModal(){
   const list=$('catList');
-  list.innerHTML=CATEGORIES.map((c,i)=>`
+  // Year selector
+  const yearBar=`<div style="display:flex;gap:8px;margin-bottom:16px;">
+    ${YEARS.map(y=>`<button onclick="setYear('${y}')" id="yr_${y}" style="flex:1;padding:10px;border-radius:10px;border:2px solid ${y===selectedYear?'#1a6b4a':'#eee'};background:${y===selectedYear?'#e8f5ee':'#f9f9f9'};color:${y===selectedYear?'#1a6b4a':'#666'};font-weight:${y===selectedYear?'700':'400'};font-size:15px;cursor:pointer;font-family:inherit;">📅 ${y}</button>`).join('')}
+  </div>`;
+  list.innerHTML=yearBar+getCategories(selectedYear).map((c,i)=>`
     <button onclick="selectCategory(${i})" style="width:100%;padding:14px 16px;background:#f9f9f9;border:1px solid #eee;border-radius:12px;font-size:15px;cursor:pointer;text-align:left;color:#111;font-family:inherit;">
       ${c.label}
     </button>`).join('');
   $('catModal').style.display='flex';
+}
+
+function setYear(y){
+  selectedYear=y;
+  showCatModal();
 }
 
 function closeCatModal(){
@@ -161,7 +175,7 @@ function closeCatModal(){
 
 function selectCategory(idx){
   $('catModal').style.display='none';
-  const cat=CATEGORIES[idx];
+  const cat=getCategories(selectedYear)[idx];
   FOLDER=cat.folder;
   $('fileInput').click();
 }
@@ -358,14 +372,20 @@ async function uploadFile(file,name,previewUrl){
 
 async function loadReceipts(){
   setLoading(true);
+  receipts=[];
   try{
-    const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/Ricevute',limit:100,recursive:true})});
-    if(res.status===409){receipts=[];renderList();setLoading(false);return;}
-    if(res.status===401){const ok=await refreshToken();if(ok){loadReceipts();return;}logout();return;}
-    if(!res.ok)throw new Error('Errore '+res.status);
-    const d=await res.json();
-    receipts=d.entries.filter(e=>e['.tag']==='file'&&/\.(jpg|jpeg|png|gif|webp)$/i.test(e.name)).map(e=>({id:e.id,name:e.name,path:e.path_display,status:'ok',url:null,date:new Date(e.server_modified)})).sort((a,b)=>b.date-a.date);
-    renderList();receipts.slice(0,10).forEach(r=>loadThumb(r));
+    for(const year of YEARS){
+      const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/Ricevute_'+year,limit:100,recursive:true})});
+      if(res.status===409)continue;
+      if(res.status===401){const ok=await refreshToken();if(ok){loadReceipts();return;}logout();return;}
+      if(!res.ok)continue;
+      const d=await res.json();
+      const entries=d.entries.filter(e=>e['.tag']==='file'&&/\.(pdf|jpg|jpeg|png|gif|webp)$/i.test(e.name)).map(e=>({id:e.id,name:e.name,path:e.path_display,status:'ok',url:null,date:new Date(e.server_modified)}));
+      receipts=receipts.concat(entries);
+    }
+    receipts.sort((a,b)=>b.date-a.date);
+    renderList();
+    receipts.slice(0,10).forEach(r=>loadThumb(r));
   }catch(err){showToast('Errore: '+err.message,true);}
   setLoading(false);
 }
@@ -408,7 +428,7 @@ function renderList(){
       </div>
       <div class="receipt-info">
         <div class="receipt-name">${r.name}</div>
-        <div class="receipt-date">${r.date.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})}</div>
+        <div class="receipt-date">${r.date.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})} · ${r.path.split('/').slice(1,3).join('/')}</div>
         <div class="receipt-status ${r.status==='ok'?'status-ok':r.status==='uploading'?'status-uploading':'status-error'}">
           ${r.status==='ok'?'✓ Salvata su Dropbox':r.status==='uploading'?'<span class="spinner"></span> Caricamento...':'✗ Errore'}
         </div>
