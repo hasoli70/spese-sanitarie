@@ -130,6 +130,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- Crop / scan modal -->
+<div id="cropModal" style="display:none;position:fixed;inset:0;z-index:300;background:#111;flex-direction:column;">
+  <div style="padding:12px 16px;color:white;font-weight:600;text-align:center;font-size:14px;background:rgba(0,0,0,0.6);">
+    Regola il rettangolo sul documento
+  </div>
+  <div id="cropStage" style="flex:1;position:relative;overflow:hidden;touch-action:none;">
+    <canvas id="cropCanvas" style="position:absolute;touch-action:none;"></canvas>
+  </div>
+  <div style="padding:12px 16px;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <label style="color:white;display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;">
+      <input type="checkbox" id="scanMode" checked style="width:20px;height:20px;accent-color:#1a6b4a;"/>
+      Scansione B/N
+    </label>
+    <div style="display:flex;gap:8px;margin-left:auto;">
+      <button onclick="cancelCrop()" style="padding:10px 16px;background:rgba(255,255,255,0.15);border:none;color:white;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit;">Annulla</button>
+      <button onclick="confirmCrop()" style="padding:10px 20px;background:#1a6b4a;border:none;color:white;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">✓ OK</button>
+    </div>
+  </div>
+</div>
+
 <button class="fab-btn" id="cameraBtn" style="display:none" onclick="showCatModal()">
   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
@@ -359,6 +379,11 @@ async function handleFile(e){
     if(collectedFiles.length>0){showToast('Annullato');collectedFiles=[];}
     return;
   }
+  try{ await openCropModal(file); }
+  catch(err){ showToast('Errore foto: '+err.message,true); collectedFiles=[]; }
+}
+
+async function continueAfterCrop(file){
   collectedFiles.push(file);
   if(collectedFiles.length<expectedPages){
     showToast('✓ Pagina '+collectedFiles.length+' di '+expectedPages);
@@ -374,6 +399,186 @@ async function handleFile(e){
     await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(filesToUse[0]));
   }catch(err){showToast('Errore PDF: '+err.message,true);}
 }
+
+// ----- Crop + scan modal -----
+let cropImg=null,cropRect=null,cropScale=1,cropDrag=null;
+
+async function openCropModal(file){
+  const img=await loadImage(file);
+  cropImg=img;
+  // Show modal first so stage gets real dimensions, then measure on next frame
+  $('cropModal').style.display='flex';
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  const stage=$('cropStage');
+  const rect=stage.getBoundingClientRect();
+  const iw=img.naturalWidth,ih=img.naturalHeight;
+  const sw=rect.width||window.innerWidth;
+  const sh=rect.height||(window.innerHeight-140);
+  cropScale=Math.min(sw/iw,sh/ih);
+  const dw=Math.max(1,Math.round(iw*cropScale));
+  const dh=Math.max(1,Math.round(ih*cropScale));
+  const canvas=$('cropCanvas');
+  canvas.width=dw;canvas.height=dh;
+  canvas.style.width=dw+'px';canvas.style.height=dh+'px';
+  canvas.style.left=Math.round((sw-dw)/2)+'px';
+  canvas.style.top=Math.round((sh-dh)/2)+'px';
+  // Default: small inset so corners are grabbable
+  const m=0.04;
+  cropRect={left:iw*m,top:ih*m,right:iw*(1-m),bottom:ih*(1-m)};
+  drawCropCanvas();
+}
+
+function drawCropCanvas(){
+  if(!cropImg||!cropRect)return;
+  const canvas=$('cropCanvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(cropImg,0,0,canvas.width,canvas.height);
+  const s=cropScale;
+  const l=cropRect.left*s,t=cropRect.top*s,r=cropRect.right*s,b=cropRect.bottom*s;
+  // Dim outside the rect
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.fillRect(0,0,canvas.width,t);
+  ctx.fillRect(0,b,canvas.width,canvas.height-b);
+  ctx.fillRect(0,t,l,b-t);
+  ctx.fillRect(r,t,canvas.width-r,b-t);
+  // Rect border
+  ctx.strokeStyle='#00d084';ctx.lineWidth=2;
+  ctx.strokeRect(l,t,r-l,b-t);
+  // Edge handles (4 bars at the center of each side)
+  const mx=(l+r)/2,my=(t+b)/2;
+  const bar={long:60,short:10};
+  const drawBar=(x,y,horizontal)=>{
+    const w=horizontal?bar.long:bar.short;
+    const h=horizontal?bar.short:bar.long;
+    ctx.fillStyle='rgba(255,255,255,0.92)';
+    ctx.fillRect(x-w/2,y-h/2,w,h);
+    ctx.strokeStyle='#00d084';ctx.lineWidth=3;
+    ctx.strokeRect(x-w/2,y-h/2,w,h);
+  };
+  drawBar(mx,t,true);   // top
+  drawBar(mx,b,true);   // bottom
+  drawBar(l,my,false);  // left
+  drawBar(r,my,false);  // right
+}
+
+function cropPointerPos(e){
+  const canvas=$('cropCanvas');
+  const r=canvas.getBoundingClientRect();
+  const t=(e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e;
+  return {x:(t.clientX-r.left)/cropScale,y:(t.clientY-r.top)/cropScale};
+}
+
+function onCropStart(e){
+  if(!cropRect||$('cropModal').style.display==='none')return;
+  e.preventDefault();
+  const p=cropPointerPos(e);
+  const l=cropRect.left,t=cropRect.top,r=cropRect.right,b=cropRect.bottom;
+  // Hit test: distance to each side center (scaled to screen px via cropScale)
+  const sides=[
+    {k:'t',x:(l+r)/2,y:t},
+    {k:'b',x:(l+r)/2,y:b},
+    {k:'l',x:l,y:(t+b)/2},
+    {k:'r',x:r,y:(t+b)/2}
+  ];
+  let best=null,bd=Infinity;
+  sides.forEach(c=>{const d=Math.hypot(c.x-p.x,c.y-p.y);if(d<bd){bd=d;best=c;}});
+  if(bd*cropScale<48)cropDrag=best.k;
+}
+
+function onCropMove(e){
+  if(!cropDrag||!cropRect)return;
+  e.preventDefault();
+  const p=cropPointerPos(e);
+  const iw=cropImg.naturalWidth,ih=cropImg.naturalHeight;
+  const x=Math.max(0,Math.min(iw,p.x)),y=Math.max(0,Math.min(ih,p.y));
+  const min=20;
+  if(cropDrag==='t')     cropRect.top=Math.max(0,Math.min(y,cropRect.bottom-min));
+  else if(cropDrag==='b')cropRect.bottom=Math.min(ih,Math.max(y,cropRect.top+min));
+  else if(cropDrag==='l')cropRect.left=Math.max(0,Math.min(x,cropRect.right-min));
+  else if(cropDrag==='r')cropRect.right=Math.min(iw,Math.max(x,cropRect.left+min));
+  drawCropCanvas();
+}
+
+function onCropEnd(){cropDrag=null;}
+
+function applyScanFilter(ctx,w,h){
+  const img=ctx.getImageData(0,0,w,h);
+  const d=img.data;
+  const hist=new Uint32Array(256);
+  const total=w*h;
+  for(let i=0;i<d.length;i+=4){
+    const g=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000|0;
+    hist[g]++;
+  }
+  let lo=0,hi=255,acc=0;
+  for(let i=0;i<256;i++){acc+=hist[i];if(acc>total*0.02){lo=i;break;}}
+  acc=0;
+  for(let i=255;i>=0;i--){acc+=hist[i];if(acc>total*0.02){hi=i;break;}}
+  const range=Math.max(1,hi-lo);
+  const lut=new Uint8Array(256);
+  for(let i=0;i<256;i++){
+    let v=(i-lo)/range*255;
+    v=Math.max(0,Math.min(255,v));
+    v=128+(v-128)*1.5; // S-curve contrast
+    v=Math.max(0,Math.min(255,v));
+    if(v>225)v=255;   // snap near-white to white
+    lut[i]=v|0;
+  }
+  for(let i=0;i<d.length;i+=4){
+    const g=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000|0;
+    const v=lut[g];
+    d[i]=d[i+1]=d[i+2]=v;
+  }
+  ctx.putImageData(img,0,0);
+}
+
+async function confirmCrop(){
+  if(!cropImg||!cropRect)return;
+  const doScan=$('scanMode').checked;
+  showToast('⏳ Elaborazione...');
+  await new Promise(r=>setTimeout(r,30));
+  try{
+    const cw=Math.max(1,Math.round(cropRect.right-cropRect.left));
+    const ch=Math.max(1,Math.round(cropRect.bottom-cropRect.top));
+    const canvas=document.createElement('canvas');
+    canvas.width=cw;canvas.height=ch;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(cropImg,cropRect.left,cropRect.top,cw,ch,0,0,cw,ch);
+    if(doScan)applyScanFilter(ctx,cw,ch);
+    const blob=await new Promise((res,rej)=>canvas.toBlob(b=>b?res(b):rej(new Error('toBlob failed')),'image/jpeg',0.9));
+    const page=new File([blob],'page.jpg',{type:'image/jpeg'});
+    $('cropModal').style.display='none';
+    cropImg=null;cropRect=null;
+    await continueAfterCrop(page);
+  }catch(err){
+    showToast('Errore ritaglio: '+err.message,true);
+    $('cropModal').style.display='none';
+    cropImg=null;cropRect=null;
+    collectedFiles=[];
+  }
+}
+
+function cancelCrop(){
+  $('cropModal').style.display='none';
+  cropImg=null;cropRect=null;
+  collectedFiles=[];
+  showToast('Annullato');
+}
+
+// Attach crop pointer listeners safely (wrapped so any failure can't break app init)
+try{
+  const _cc=document.getElementById('cropCanvas');
+  if(_cc){
+    _cc.addEventListener('touchstart',onCropStart,{passive:false});
+    _cc.addEventListener('touchmove',onCropMove,{passive:false});
+    _cc.addEventListener('touchend',onCropEnd);
+    _cc.addEventListener('touchcancel',onCropEnd);
+    _cc.addEventListener('mousedown',onCropStart);
+    window.addEventListener('mousemove',onCropMove);
+    window.addEventListener('mouseup',onCropEnd);
+  }
+}catch(e){console.error('crop listeners setup failed',e);}
 
 async function doUpload(buf,path){
   return fetch('https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':JSON.stringify({path,mode:'add',autorename:true,mute:false}),'Content-Type':'application/octet-stream'},body:buf});
