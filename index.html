@@ -129,6 +129,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- Crop / scan editor -->
+<div id="cropEditor" style="display:none;position:fixed;inset:0;z-index:300;background:#111;flex-direction:column;">
+  <div style="padding:14px 20px;color:white;font-weight:600;text-align:center;font-size:14px;background:rgba(0,0,0,0.6);">
+    Trascina i 4 angoli sui bordi dello scontrino
+  </div>
+  <div id="cropStage" style="flex:1;position:relative;overflow:hidden;touch-action:none;">
+    <canvas id="cropCanvas" style="position:absolute;touch-action:none;"></canvas>
+  </div>
+  <div style="padding:14px 20px;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <label style="color:white;display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;">
+      <input type="checkbox" id="scanMode" checked style="width:20px;height:20px;accent-color:#1a6b4a;"/>
+      Aspetto scansione B/N
+    </label>
+    <div style="display:flex;gap:8px;margin-left:auto;">
+      <button onclick="cancelCrop()" style="padding:10px 16px;background:rgba(255,255,255,0.15);border:none;color:white;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit;">Annulla</button>
+      <button onclick="confirmCrop()" style="padding:10px 20px;background:#1a6b4a;border:none;color:white;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">✓ Conferma</button>
+    </div>
+  </div>
+</div>
+
 <button class="fab-btn" id="cameraBtn" style="display:none" onclick="showCatModal()">
   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
@@ -297,47 +317,35 @@ function loadImage(file){
   });
 }
 
+// Build a multi-page PDF. Each page matches its image aspect ratio (A4 width, proportional height).
 async function imagesToPdf(files){
-  const a4w=595,a4h=842;
   const enc=new TextEncoder();
-  // Render each image to a JPEG byte array and record page placement
+  const pageMaxW=595; // A4 width in pt
   const pageData=[];
   for(const file of files){
     const img=await loadImage(file);
     const w=img.naturalWidth,h=img.naturalHeight;
-    const scale=Math.min(a4w/w,a4h/h,1);
-    const pw=Math.round(w*scale),ph=Math.round(h*scale);
-    const ox=Math.round((a4w-pw)/2),oy=Math.round((a4h-ph)/2);
-    const canvas=document.createElement('canvas');
-    canvas.width=a4w;canvas.height=a4h;
-    const ctx=canvas.getContext('2d');
-    ctx.fillStyle='white';ctx.fillRect(0,0,a4w,a4h);
-    ctx.drawImage(img,ox,oy,pw,ph);
-    const jpegData=canvas.toDataURL('image/jpeg',0.92).split(',')[1];
-    const imgBytes=atob(jpegData);
-    const imgLen=imgBytes.length;
-    const imgArr=new Uint8Array(imgLen);
-    for(let i=0;i<imgLen;i++)imgArr[i]=imgBytes.charCodeAt(i);
-    pageData.push({w,h,pw,ph,ox,oy,imgArr,imgLen});
+    const pgW=pageMaxW;
+    const pgH=Math.max(1,Math.round(pgW*h/w));
+    // Files are already JPEGs (from the crop editor output) — embed raw bytes, no re-encoding
+    const imgArr=new Uint8Array(await file.arrayBuffer());
+    pageData.push({w,h,pgW,pgH,imgArr,imgLen:imgArr.length});
   }
-  // Build PDF as a list of byte chunks, tracking running offset
   const chunks=[];let offset=0;
   const push=data=>{const u8=typeof data==='string'?enc.encode(data):data;chunks.push(u8);offset+=u8.length;};
   const offsets=[];
   push('%PDF-1.4\n');
-  // 1: Catalog
   offsets.push(offset);
   push('1 0 obj<</Type /Catalog /Pages 2 0 R>>endobj\n');
-  // 2: Pages
   offsets.push(offset);
   const kids=pageData.map((_,i)=>(3+i*3)+' 0 R').join(' ');
   push('2 0 obj<</Type /Pages /Kids ['+kids+'] /Count '+pageData.length+'>>endobj\n');
-  // Per page: Page, Content, Image XObject (3 objects each)
   pageData.forEach((p,i)=>{
     const pageId=3+i*3,contentId=pageId+1,imgId=pageId+2;
     offsets.push(offset);
-    push(pageId+' 0 obj<</Type /Page /Parent 2 0 R /MediaBox [0 0 '+a4w+' '+a4h+'] /Contents '+contentId+' 0 R /Resources <</XObject <</Im1 '+imgId+' 0 R>>>>>>endobj\n');
-    const stream='q '+p.pw+' 0 0 '+p.ph+' '+p.ox+' '+p.oy+' cm /Im1 Do Q';
+    push(pageId+' 0 obj<</Type /Page /Parent 2 0 R /MediaBox [0 0 '+p.pgW+' '+p.pgH+'] /Contents '+contentId+' 0 R /Resources <</XObject <</Im1 '+imgId+' 0 R>>>>>>endobj\n');
+    // Image fills the whole page
+    const stream='q '+p.pgW+' 0 0 '+p.pgH+' 0 0 cm /Im1 Do Q';
     offsets.push(offset);
     push(contentId+' 0 obj<</Length '+stream.length+'>>\nstream\n'+stream+'\nendstream endobj\n');
     offsets.push(offset);
@@ -345,142 +353,156 @@ async function imagesToPdf(files){
     push(p.imgArr);
     push('\nendstream endobj\n');
   });
-  // XRef
   const xrefPos=offset;
   const totalObjs=2+pageData.length*3;
   let xref='xref\n0 '+(totalObjs+1)+'\n0000000000 65535 f \n';
   offsets.forEach(o=>{xref+=String(o).padStart(10,'0')+' 00000 n \n';});
   xref+='trailer<</Size '+(totalObjs+1)+' /Root 1 0 R>>\nstartxref\n'+xrefPos+'\n%%EOF';
   push(xref);
-  // Combine
   const total=new Uint8Array(offset);
   let pos=0;for(const c of chunks){total.set(c,pos);pos+=c.length;}
   return new Blob([total],{type:'application/pdf'});
 }
 
-async function handleFile(e){
-  const file=e.target.files[0];
-  e.target.value='';
-  if(!file){
-    if(collectedFiles.length>0){showToast('Annullato');collectedFiles=[];}
-    return;
+// ----- Crop / scan editor -----
+let cropState=null;
+
+async function openCropEditor(file){
+  const img=await loadImage(file);
+  const stage=$('cropStage');
+  const canvas=$('cropCanvas');
+  const rect=stage.getBoundingClientRect();
+  const iw=img.naturalWidth,ih=img.naturalHeight;
+  const scale=Math.min(rect.width/iw,rect.height/ih);
+  const dw=Math.round(iw*scale),dh=Math.round(ih*scale);
+  canvas.width=dw;canvas.height=dh;
+  canvas.style.width=dw+'px';canvas.style.height=dh+'px';
+  canvas.style.left=Math.round((rect.width-dw)/2)+'px';
+  canvas.style.top=Math.round((rect.height-dh)/2)+'px';
+  // Default corners with 5% inset (TL, TR, BR, BL)
+  const m=0.05;
+  const corners=[
+    {x:iw*m,     y:ih*m},
+    {x:iw*(1-m), y:ih*m},
+    {x:iw*(1-m), y:ih*(1-m)},
+    {x:iw*m,     y:ih*(1-m)}
+  ];
+  cropState={img,iw,ih,scale,corners,dragIdx:-1};
+  drawCrop();
+  $('cropEditor').style.display='flex';
+}
+
+function drawCrop(){
+  if(!cropState)return;
+  const {img,scale,corners}=cropState;
+  const canvas=$('cropCanvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  // Dim outside the quad
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.globalCompositeOperation='destination-out';
+  ctx.beginPath();
+  corners.forEach((c,i)=>{const sx=c.x*scale,sy=c.y*scale;if(i===0)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy);});
+  ctx.closePath();ctx.fill();
+  ctx.restore();
+  // Quad outline
+  ctx.strokeStyle='#00d084';ctx.lineWidth=2;
+  ctx.beginPath();
+  corners.forEach((c,i)=>{const sx=c.x*scale,sy=c.y*scale;if(i===0)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy);});
+  ctx.closePath();ctx.stroke();
+  // Corner handles
+  corners.forEach(c=>{
+    const sx=c.x*scale,sy=c.y*scale;
+    ctx.beginPath();ctx.arc(sx,sy,16,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,0.92)';ctx.fill();
+    ctx.strokeStyle='#00d084';ctx.lineWidth=3;ctx.stroke();
+    ctx.beginPath();ctx.arc(sx,sy,4,0,Math.PI*2);
+    ctx.fillStyle='#00d084';ctx.fill();
+  });
+}
+
+function cropPointerImgPos(e){
+  const canvas=$('cropCanvas');
+  const r=canvas.getBoundingClientRect();
+  const t=e.touches&&e.touches[0]?e.touches[0]:(e.changedTouches&&e.changedTouches[0]?e.changedTouches[0]:e);
+  return {x:(t.clientX-r.left)/cropState.scale,y:(t.clientY-r.top)/cropState.scale};
+}
+
+function onCropStart(e){
+  if(!cropState)return;
+  e.preventDefault();
+  const pos=cropPointerImgPos(e);
+  let idx=-1,best=Infinity;
+  cropState.corners.forEach((c,i)=>{
+    const d=Math.hypot(c.x-pos.x,c.y-pos.y);
+    if(d<best){best=d;idx=i;}
+  });
+  // 44px touch target in screen space
+  if(best*cropState.scale<44)cropState.dragIdx=idx;
+}
+
+function onCropMove(e){
+  if(!cropState||cropState.dragIdx<0)return;
+  e.preventDefault();
+  const pos=cropPointerImgPos(e);
+  const c=cropState.corners[cropState.dragIdx];
+  c.x=Math.max(0,Math.min(cropState.iw,pos.x));
+  c.y=Math.max(0,Math.min(cropState.ih,pos.y));
+  drawCrop();
+}
+
+function onCropEnd(){ if(cropState)cropState.dragIdx=-1; }
+
+// Perspective warp via bilinear interpolation in source quad + optional scan filter
+function warpAndProcess(img,corners,scanMode){
+  const [A,B,C,D]=corners;
+  const widthTop=Math.hypot(B.x-A.x,B.y-A.y);
+  const widthBot=Math.hypot(C.x-D.x,C.y-D.y);
+  const heightL=Math.hypot(D.x-A.x,D.y-A.y);
+  const heightR=Math.hypot(C.x-B.x,C.y-B.y);
+  let outW=Math.round(Math.max(widthTop,widthBot));
+  let outH=Math.round(Math.max(heightL,heightR));
+  const maxDim=1600;
+  if(Math.max(outW,outH)>maxDim){
+    const s=maxDim/Math.max(outW,outH);
+    outW=Math.round(outW*s);outH=Math.round(outH*s);
   }
-  collectedFiles.push(file);
-  // Need more pages? Re-trigger camera synchronously to preserve user gesture
-  if(collectedFiles.length<expectedPages){
-    showToast('✓ Pagina '+collectedFiles.length+' di '+expectedPages);
-    $('fileInput').click();
-    return;
-  }
-  // All pages captured → build PDF
-  const filesToUse=collectedFiles;collectedFiles=[];
-  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-  showToast('⏳ Creazione PDF ('+filesToUse.length+' pagin'+(filesToUse.length===1?'a':'e')+')...');
-  try{
-    const pdfBlob=await imagesToPdf(filesToUse);
-    const pdfFile=new File([pdfBlob],'ricevuta_'+ts+'.pdf',{type:'application/pdf'});
-    await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(filesToUse[0]));
-  }catch(err){showToast('Errore PDF: '+err.message,true);}
-}
-
-async function doUpload(buf,path){
-  return fetch('https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':JSON.stringify({path,mode:'add',autorename:true,mute:false}),'Content-Type':'application/octet-stream'},body:buf});
-}
-
-async function uploadFile(file,name,previewUrl){
-  const path=FOLDER+'/'+name,id='local_'+Date.now();
-  receipts.unshift({id,name,path,status:'uploading',url:previewUrl||URL.createObjectURL(file),date:new Date()});
-  renderList();setLoading(true);
-  try{
-    const buf=await file.arrayBuffer();
-    let res=await doUpload(buf,path);
-    if(res.status===401){const ok=await refreshToken();if(!ok){logout();return;}res=await doUpload(buf,path);}
-    if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err.error_summary||'Errore '+res.status);}
-    const d=await res.json();
-    const r=receipts.find(x=>x.id===id);if(r){r.status='ok';r.path=d.path_display;r.id=d.id||id;}
-    showToast('✓ Ricevuta salvata!');
-  }catch(err){const r=receipts.find(x=>x.id===id);if(r)r.status='error';showToast('Errore: '+err.message,true);}
-  setLoading(false);renderList();
-}
-
-async function loadReceipts(){
-  setLoading(true);
-  receipts=[];
-  try{
-    for(const year of YEARS){
-      const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/Ricevute_'+year,limit:100,recursive:true})});
-      if(res.status===409)continue;
-      if(res.status===401){const ok=await refreshToken();if(ok){loadReceipts();return;}logout();return;}
-      if(!res.ok)continue;
-      const d=await res.json();
-      const entries=d.entries.filter(e=>e['.tag']==='file'&&/\.(pdf|jpg|jpeg|png|gif|webp)$/i.test(e.name)).map(e=>({id:e.id,name:e.name,path:e.path_display,status:'ok',url:null,date:new Date(e.server_modified)}));
-      receipts=receipts.concat(entries);
+  outW=Math.max(1,outW);outH=Math.max(1,outH);
+  // Source on a canvas to read pixel data
+  const src=document.createElement('canvas');
+  src.width=img.naturalWidth;src.height=img.naturalHeight;
+  src.getContext('2d').drawImage(img,0,0);
+  const sData=src.getContext('2d').getImageData(0,0,src.width,src.height).data;
+  const sW=src.width,sH=src.height;
+  const out=document.createElement('canvas');
+  out.width=outW;out.height=outH;
+  const outCtx=out.getContext('2d');
+  const outImg=outCtx.createImageData(outW,outH);
+  const oPx=outImg.data;
+  // Bilinear warp of the quadrilateral (ruled surface) — fast and good for moderate perspective
+  for(let y=0;y<outH;y++){
+    const v=outH===1?0:y/(outH-1);
+    const iv=1-v;
+    for(let x=0;x<outW;x++){
+      const u=outW===1?0:x/(outW-1);
+      const iu=1-u;
+      const sx=iu*iv*A.x+u*iv*B.x+u*v*C.x+iu*v*D.x;
+      const sy=iu*iv*A.y+u*iv*B.y+u*v*C.y+iu*v*D.y;
+      // Bilinear sample from source
+      const x0=Math.floor(sx),y0=Math.floor(sy);
+      const x1=Math.min(sW-1,x0+1),y1=Math.min(sH-1,y0+1);
+      if(x0<0||y0<0||x0>=sW||y0>=sH){const oI=(y*outW+x)*4;oPx[oI]=255;oPx[oI+1]=255;oPx[oI+2]=255;oPx[oI+3]=255;continue;}
+      const fx=sx-x0,fy=sy-y0,ifx=1-fx,ify=1-fy;
+      const i00=(y0*sW+x0)*4,i10=(y0*sW+x1)*4,i01=(y1*sW+x0)*4,i11=(y1*sW+x1)*4;
+      const oI=(y*outW+x)*4;
+      oPx[oI]=ifx*ify*sData[i00]+fx*ify*sData[i10]+ifx*fy*sData[i01]+fx*fy*sData[i11];
+      oPx[oI+1]=ifx*ify*sData[i00+1]+fx*ify*sData[i10+1]+ifx*fy*sData[i01+1]+fx*fy*sData[i11+1];
+      oPx[oI+2]=ifx*ify*sData[i00+2]+fx*ify*sData[i10+2]+ifx*fy*sData[i01+2]+fx*fy*sData[i11+2];
+      oPx[oI+3]=255;
     }
-    receipts.sort((a,b)=>b.date-a.date);
-    renderList();
-    receipts.slice(0,10).forEach(r=>loadThumb(r));
-  }catch(err){showToast('Errore: '+err.message,true);}
-  setLoading(false);
-}
-
-async function loadThumb(r){
-  try{
-    const res=await fetch('https://content.dropboxapi.com/2/files/get_thumbnail',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':JSON.stringify({path:r.path,format:'jpeg',size:'w128h128'})}});
-    if(!res.ok)return;
-    r.url=URL.createObjectURL(await res.blob());
-    const img=document.querySelector('[data-thumb="'+r.id+'"]');
-    if(img){img.src=r.url;img.style.display='block';const icon=img.previousElementSibling;if(icon)icon.style.display='none';}
-  }catch{}
-}
-
-window.hideReceipt=function(rid){receipts=receipts.filter(x=>x.id!=rid);renderList();showToast('👁 Nascosta (resta su Dropbox)');};
-window.deleteReceipt=async function(rid){
-  const r=receipts.find(x=>x.id==rid);
-  if(!r||!confirm('Eliminare "'+r.name+'" da Dropbox?'))return;
-  try{
-    setLoading(true);
-    const res=await fetch('https://api.dropboxapi.com/2/files/delete_v2',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:r.path})});
-    if(!res.ok)throw new Error('Errore');
-    receipts=receipts.filter(x=>x.id!=rid);renderList();showToast('🗑 Eliminata da Dropbox');
-  }catch(err){showToast('Errore: '+err.message,true);}
-  setLoading(false);
-};
-
-function renderList(){
-  const list=$('receiptList'),empty=$('emptyState'),title=$('listTitle');
-  if(receipts.length===0){list.innerHTML='';empty.style.display='block';title.textContent='Le tue ricevute';return;}
-  empty.style.display='none';
-  title.textContent=receipts.length+' ricevut'+(receipts.length===1?'a':'e');
-  list.innerHTML=receipts.map(r=>`
-    <div class="receipt-card">
-      <div class="receipt-thumb">
-        ${r.name.endsWith('.pdf')
-          ? `<span style="font-size:28px">📄</span>`
-          : `<span style="font-size:24px;${r.url?'display:none':''}">🧾</span><img data-thumb="${r.id}" src="${r.url||''}" alt="" style="display:${r.url?'block':'none'};" />`
-        }
-      </div>
-      <div class="receipt-info">
-        <div class="receipt-name">${r.name}</div>
-        <div class="receipt-date">${r.date.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})} · ${r.path.split('/').slice(1,3).join('/')}</div>
-        <div class="receipt-status ${r.status==='ok'?'status-ok':r.status==='uploading'?'status-uploading':'status-error'}">
-          ${r.status==='ok'?'✓ Salvata su Dropbox':r.status==='uploading'?'<span class="spinner"></span> Caricamento...':'✗ Errore'}
-        </div>
-      </div>
-      ${r.status!=='uploading'?`<div class="card-actions">
-        <button class="btn-hide" onclick="hideReceipt('${r.id}')">👁</button>
-        <button class="btn-danger" onclick="deleteReceipt('${r.id}')">🗑</button>
-      </div>`:''}
-    </div>`).join('');
-}
-
-async function init(){
-  if('serviceWorker'in navigator)navigator.serviceWorker.getRegistrations().then(r=>r.forEach(sw=>sw.unregister()));
-  const code=new URLSearchParams(location.search).get('code');
-  if(code){await exchangeCode(code);return;}
-  TOKEN=localStorage.getItem('dbx_at')||'';
-  if(TOKEN){showMain();}else{$('loginScreen').style.display='flex';}
-}
-init();
-</script>
-</body>
-</html>
+  }
+  if(scanMode){
+    // Grayscale + histogram-based contrast stretch + S-curve fo
