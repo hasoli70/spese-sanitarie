@@ -115,20 +115,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Pages count modal -->
-<div id="pagesModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center;">
-  <div style="background:white;width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:24px 20px 40px;">
-    <div style="font-size:16px;font-weight:700;color:#111;margin-bottom:6px;">📄 Quante pagine?</div>
-    <div style="font-size:13px;color:#888;margin-bottom:20px;">Scegli quante foto scattare per questa ricevuta</div>
-    <div style="display:flex;gap:10px;">
-      <button onclick="selectPages(1)" style="flex:1;padding:20px 10px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:15px;cursor:pointer;color:#111;font-family:inherit;font-weight:600;">📄<br/>1 pagina</button>
-      <button onclick="selectPages(2)" style="flex:1;padding:20px 10px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:15px;cursor:pointer;color:#111;font-family:inherit;font-weight:600;">📄📄<br/>2 pagine</button>
-      <button onclick="selectPages(3)" style="flex:1;padding:20px 10px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:15px;cursor:pointer;color:#111;font-family:inherit;font-weight:600;">📄📄📄<br/>3 pagine</button>
-    </div>
-    <button onclick="closePagesModal()" style="width:100%;margin-top:16px;padding:12px;background:#f5f5f5;border:none;border-radius:10px;font-size:15px;cursor:pointer;color:#666;">Annulla</button>
-  </div>
-</div>
-
 <button class="fab-btn" id="cameraBtn" style="display:none" onclick="showCatModal()">
   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
@@ -141,7 +127,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const APP_KEY='o4uhth8m0cz03bq';
 const REDIRECT_URI=location.origin+location.pathname;
 let TOKEN='',FOLDER='/Ricevute_2026',receipts=[],toastTimer,pendingFile=null,selectedYear='2026';
-let expectedPages=1,collectedFiles=[];
 const $=id=>document.getElementById(id);
 
 const YEARS=['2025','2026'];
@@ -192,19 +177,18 @@ function selectCategory(idx){
   $('catModal').style.display='none';
   const cat=getCategories(selectedYear)[idx];
   FOLDER=cat.folder;
-  $('pagesModal').style.display='flex';
-}
-
-function closePagesModal(){
-  $('pagesModal').style.display='none';
-  collectedFiles=[];
-}
-
-function selectPages(n){
-  expectedPages=n;
-  collectedFiles=[];
-  $('pagesModal').style.display='none';
   $('fileInput').click();
+}
+
+async function handleFile(e){
+  const file=e.target.files[0];if(!file)return;e.target.value='';
+  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+  showToast('⏳ Conversione in PDF...');
+  try{
+    const pdfBlob=await imageToPdf(file);
+    const pdfFile=new File([pdfBlob],'ricevuta_'+ts+'.pdf',{type:'application/pdf'});
+    await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(file));
+  }catch(err){showToast('Errore PDF: '+err.message,true);}
 }
 
 async function sha256(plain){
@@ -287,90 +271,82 @@ function showMain(){
   getUserInfo();loadReceipts();
 }
 
-function loadImage(file){
+async function imageToPdf(file){
   return new Promise((resolve,reject)=>{
     const img=new Image();
     const url=URL.createObjectURL(file);
-    img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};
-    img.onerror=e=>{URL.revokeObjectURL(url);reject(e);};
+    img.onload=()=>{
+      const w=img.naturalWidth,h=img.naturalHeight;
+      // PDF page size: fit image keeping aspect ratio within A4
+      const a4w=595,a4h=842;
+      const scale=Math.min(a4w/w,a4h/h,1);
+      const pw=Math.round(w*scale),ph=Math.round(h*scale);
+      const ox=Math.round((a4w-pw)/2),oy=Math.round((a4h-ph)/2);
+      // Draw image to canvas
+      const canvas=document.createElement('canvas');
+      canvas.width=a4w;canvas.height=a4h;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='white';ctx.fillRect(0,0,a4w,a4h);
+      ctx.drawImage(img,ox,oy,pw,ph);
+      URL.revokeObjectURL(url);
+      const jpegData=canvas.toDataURL('image/jpeg',0.92).split(',')[1];
+      // Build minimal PDF manually
+      const imgBytes=atob(jpegData);
+      const imgLen=imgBytes.length;
+      const nl='\n';
+      let pdf='%PDF-1.4'+nl;
+      const offsets=[];
+      // Object 1: catalog
+      offsets.push(pdf.length);
+      pdf+='1 0 obj<</Type /Catalog /Pages 2 0 R>>endobj'+nl;
+      // Object 2: pages
+      offsets.push(pdf.length);
+      pdf+='2 0 obj<</Type /Pages /Kids [3 0 R] /Count 1>>endobj'+nl;
+      // Object 3: page
+      offsets.push(pdf.length);
+      pdf+='3 0 obj<</Type /Page /Parent 2 0 R /MediaBox [0 0 '+a4w+' '+a4h+'] /Contents 4 0 R /Resources <</XObject <</Im1 5 0 R>>>>>>endobj'+nl;
+      // Object 4: content stream
+      const stream='q '+pw+' 0 0 '+ph+' '+ox+' '+oy+' cm /Im1 Do Q';
+      offsets.push(pdf.length);
+      pdf+='4 0 obj<</Length '+stream.length+'>>'+nl+'stream'+nl+stream+nl+'endstream endobj'+nl;
+      // Object 5: image XObject
+      offsets.push(pdf.length);
+      const imgHeader='5 0 obj<</Type /XObject /Subtype /Image /Width '+w+' /Height '+h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+imgLen+'>>'+nl+'stream'+nl;
+      const xrefPos=pdf.length+imgHeader.length+imgLen+'\nendstream endobj\n'.length;
+      pdf+=imgHeader;
+      // Convert to Uint8Array for binary
+      const enc=new TextEncoder();
+      const pdfBytes1=enc.encode(pdf);
+      const imgArr=new Uint8Array(imgLen);
+      for(let i=0;i<imgLen;i++)imgArr[i]=imgBytes.charCodeAt(i);
+      const trailer=enc.encode('\nendstream endobj\n');
+      // XRef table
+      let xref='xref\n0 6\n0000000000 65535 f \n';
+      offsets.forEach(o=>{ xref+=String(o).padStart(10,'0')+' 00000 n \n'; });
+      const xrefStr=xref+'trailer<</Size 6 /Root 1 0 R>>\nstartxref\n'+xrefPos+'\n%%EOF';
+      const xrefBytes=enc.encode(xrefStr);
+      // Combine all
+      const total=new Uint8Array(pdfBytes1.length+imgArr.length+trailer.length+xrefBytes.length);
+      let pos=0;
+      total.set(pdfBytes1,pos);pos+=pdfBytes1.length;
+      total.set(imgArr,pos);pos+=imgArr.length;
+      total.set(trailer,pos);pos+=trailer.length;
+      total.set(xrefBytes,pos);
+      resolve(new Blob([total],{type:'application/pdf'}));
+    };
+    img.onerror=reject;
     img.src=url;
   });
 }
 
-async function imagesToPdf(files){
-  const a4w=595,a4h=842;
-  const enc=new TextEncoder();
-  const pageData=[];
-  for(const file of files){
-    const img=await loadImage(file);
-    const w=img.naturalWidth,h=img.naturalHeight;
-    const scale=Math.min(a4w/w,a4h/h,1);
-    const pw=Math.round(w*scale),ph=Math.round(h*scale);
-    const ox=Math.round((a4w-pw)/2),oy=Math.round((a4h-ph)/2);
-    const canvas=document.createElement('canvas');
-    canvas.width=a4w;canvas.height=a4h;
-    const ctx=canvas.getContext('2d');
-    ctx.fillStyle='white';ctx.fillRect(0,0,a4w,a4h);
-    ctx.drawImage(img,ox,oy,pw,ph);
-    const jpegData=canvas.toDataURL('image/jpeg',0.92).split(',')[1];
-    const imgBytes=atob(jpegData);
-    const imgLen=imgBytes.length;
-    const imgArr=new Uint8Array(imgLen);
-    for(let i=0;i<imgLen;i++)imgArr[i]=imgBytes.charCodeAt(i);
-    pageData.push({w,h,pw,ph,ox,oy,imgArr,imgLen});
-  }
-  const chunks=[];let offset=0;
-  const push=data=>{const u8=typeof data==='string'?enc.encode(data):data;chunks.push(u8);offset+=u8.length;};
-  const offsets=[];
-  push('%PDF-1.4\n');
-  offsets.push(offset);
-  push('1 0 obj<</Type /Catalog /Pages 2 0 R>>endobj\n');
-  offsets.push(offset);
-  const kids=pageData.map((_,i)=>(3+i*3)+' 0 R').join(' ');
-  push('2 0 obj<</Type /Pages /Kids ['+kids+'] /Count '+pageData.length+'>>endobj\n');
-  pageData.forEach((p,i)=>{
-    const pageId=3+i*3,contentId=pageId+1,imgId=pageId+2;
-    offsets.push(offset);
-    push(pageId+' 0 obj<</Type /Page /Parent 2 0 R /MediaBox [0 0 '+a4w+' '+a4h+'] /Contents '+contentId+' 0 R /Resources <</XObject <</Im1 '+imgId+' 0 R>>>>>>endobj\n');
-    const stream='q '+p.pw+' 0 0 '+p.ph+' '+p.ox+' '+p.oy+' cm /Im1 Do Q';
-    offsets.push(offset);
-    push(contentId+' 0 obj<</Length '+stream.length+'>>\nstream\n'+stream+'\nendstream endobj\n');
-    offsets.push(offset);
-    push(imgId+' 0 obj<</Type /XObject /Subtype /Image /Width '+p.w+' /Height '+p.h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+p.imgLen+'>>\nstream\n');
-    push(p.imgArr);
-    push('\nendstream endobj\n');
-  });
-  const xrefPos=offset;
-  const totalObjs=2+pageData.length*3;
-  let xref='xref\n0 '+(totalObjs+1)+'\n0000000000 65535 f \n';
-  offsets.forEach(o=>{xref+=String(o).padStart(10,'0')+' 00000 n \n';});
-  xref+='trailer<</Size '+(totalObjs+1)+' /Root 1 0 R>>\nstartxref\n'+xrefPos+'\n%%EOF';
-  push(xref);
-  const total=new Uint8Array(offset);
-  let pos=0;for(const c of chunks){total.set(c,pos);pos+=c.length;}
-  return new Blob([total],{type:'application/pdf'});
-}
-
 async function handleFile(e){
-  const file=e.target.files[0];
-  e.target.value='';
-  if(!file){
-    if(collectedFiles.length>0){showToast('Annullato');collectedFiles=[];}
-    return;
-  }
-  collectedFiles.push(file);
-  if(collectedFiles.length<expectedPages){
-    showToast('✓ Pagina '+collectedFiles.length+' di '+expectedPages);
-    $('fileInput').click();
-    return;
-  }
-  const filesToUse=collectedFiles;collectedFiles=[];
+  const file=e.target.files[0];if(!file)return;e.target.value='';
   const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-  showToast('⏳ Creazione PDF ('+filesToUse.length+' pagin'+(filesToUse.length===1?'a':'e')+')...');
+  showToast('⏳ Conversione in PDF...');
   try{
-    const pdfBlob=await imagesToPdf(filesToUse);
+    const pdfBlob=await imageToPdf(file);
     const pdfFile=new File([pdfBlob],'ricevuta_'+ts+'.pdf',{type:'application/pdf'});
-    await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(filesToUse[0]));
+    await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(file));
   }catch(err){showToast('Errore PDF: '+err.message,true);}
 }
 
