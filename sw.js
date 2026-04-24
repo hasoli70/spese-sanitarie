@@ -1,4 +1,4 @@
-const CACHE = 'spese-sanitarie-v5';
+const CACHE = 'spese-sanitarie-v6';
 const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
