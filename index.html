@@ -98,7 +98,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
   <div id="settingsPanel" class="settings-panel" style="display:none">
     <div class="folder-row">
-      <input type="text" class="folder-input" id="folderInput" value="/Ricevute" />
+      <input type="text" class="folder-input" id="folderInput" value="/spesefiscali" />
       <button class="folder-save" onclick="saveFolder()">OK</button>
     </div>
     <button class="btn-danger" onclick="logout()">Esci</button>
@@ -115,24 +115,73 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- Pages count modal -->
+<div id="pagesModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center;">
+  <div style="background:white;width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:24px 20px 40px;">
+    <div style="font-size:16px;font-weight:700;color:#111;margin-bottom:6px;">📄 Quante pagine?</div>
+    <div style="font-size:13px;color:#888;margin-bottom:20px;">Scegli quante foto scattare per questa ricevuta</div>
+    <div style="display:flex;gap:6px;">
+      <button onclick="selectPages(1)" style="flex:1;min-width:0;padding:18px 2px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:13px;cursor:pointer;color:#111;font-family:inherit;font-weight:600;line-height:1.3;">📄<br/>1 pagina</button>
+      <button onclick="selectPages(2)" style="flex:1;min-width:0;padding:18px 2px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:13px;cursor:pointer;color:#111;font-family:inherit;font-weight:600;line-height:1.3;">📄<br/>2 pagine</button>
+      <button onclick="selectPages(3)" style="flex:1;min-width:0;padding:18px 2px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:13px;cursor:pointer;color:#111;font-family:inherit;font-weight:600;line-height:1.3;">📄<br/>3 pagine</button>
+      <button onclick="selectPages(4)" style="flex:1;min-width:0;padding:18px 2px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:13px;cursor:pointer;color:#111;font-family:inherit;font-weight:600;line-height:1.3;">📄<br/>4 pagine</button>
+    </div>
+    <button onclick="closePagesModal()" style="width:100%;margin-top:16px;padding:12px;background:#f5f5f5;border:none;border-radius:10px;font-size:15px;cursor:pointer;color:#666;">Annulla</button>
+  </div>
+</div>
+
+<!-- Source modal -->
+<div id="sourceModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center;">
+  <div style="background:white;width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:24px 20px 40px;">
+    <div style="font-size:16px;font-weight:700;color:#111;margin-bottom:6px;">📷 Come aggiungere?</div>
+    <div style="font-size:13px;color:#888;margin-bottom:20px;">Fotografa una ricevuta o caricane una dal telefono</div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="selectSource('camera')" style="flex:1;min-width:0;padding:22px 8px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:15px;cursor:pointer;color:#111;font-family:inherit;font-weight:700;line-height:1.3;">📷<br/>Fotografa</button>
+      <button onclick="selectSource('upload')" style="flex:1;min-width:0;padding:22px 8px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:15px;cursor:pointer;color:#111;font-family:inherit;font-weight:700;line-height:1.3;">📁<br/>Carica</button>
+    </div>
+    <button onclick="closeSourceModal()" style="width:100%;margin-top:16px;padding:12px;background:#f5f5f5;border:none;border-radius:10px;font-size:15px;cursor:pointer;color:#666;">Annulla</button>
+  </div>
+</div>
+
+<!-- Crop / scan modal -->
+<div id="cropModal" style="display:none;position:fixed;inset:0;z-index:300;background:#111;flex-direction:column;">
+  <div style="padding:12px 16px;color:white;font-weight:600;text-align:center;font-size:14px;background:rgba(0,0,0,0.6);">
+    Regola il rettangolo sul documento
+  </div>
+  <div id="cropStage" style="flex:1;position:relative;overflow:hidden;touch-action:none;">
+    <canvas id="cropCanvas" style="position:absolute;touch-action:none;"></canvas>
+  </div>
+  <div style="padding:12px 16px;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+    <label style="color:white;display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer;">
+      <input type="checkbox" id="scanMode" checked style="width:20px;height:20px;accent-color:#1a6b4a;"/>
+      Scansione B/N
+    </label>
+    <div style="display:flex;gap:8px;margin-left:auto;">
+      <button onclick="cancelCrop()" style="padding:10px 16px;background:rgba(255,255,255,0.15);border:none;color:white;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit;">Annulla</button>
+      <button onclick="confirmCrop()" style="padding:10px 20px;background:#1a6b4a;border:none;color:white;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;">✓ OK</button>
+    </div>
+  </div>
+</div>
+
 <button class="fab-btn" id="cameraBtn" style="display:none" onclick="showCatModal()">
   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
   </svg>
 </button>
-<input type="file" accept="image/*" capture="environment" id="fileInput" style="display:none" onchange="handleFile(event)" />
+<input type="file" accept="image/*,application/pdf" id="fileInput" style="display:none" onchange="handleFile(event)" />
 
 <script>
 const APP_KEY='o4uhth8m0cz03bq';
 const REDIRECT_URI=location.origin+location.pathname;
-let TOKEN='',FOLDER='/SpeseFiscali_2026',receipts=[],toastTimer,pendingFile=null,selectedYear='2026';
+let TOKEN='',FOLDER='/spesefiscali_2026',receipts=[],toastTimer,pendingFile=null,selectedYear='2026';
+let expectedPages=1,collectedFiles=[],selectedSource='camera';
 const $=id=>document.getElementById(id);
 
 const YEARS=['2025','2026'];
 
 function getCategories(year){
-  const base='/SpeseFiscali_'+year;
+  const base='/spesefiscali_'+year;
   return [
     {label:'🏥 Medico — Oliver',    folder:base+'/Medico/Oliver'},
     {label:'🏥 Medico — Ilaria',    folder:base+'/Medico/Ilaria'},
@@ -177,18 +226,38 @@ function selectCategory(idx){
   $('catModal').style.display='none';
   const cat=getCategories(selectedYear)[idx];
   FOLDER=cat.folder;
-  $('fileInput').click();
+  $('pagesModal').style.display='flex';
 }
 
-async function handleFile(e){
-  const file=e.target.files[0];if(!file)return;e.target.value='';
-  const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-  showToast('⏳ Conversione in PDF...');
-  try{
-    const pdfBlob=await imageToPdf(file);
-    const pdfFile=new File([pdfBlob],'ricevuta_'+ts+'.pdf',{type:'application/pdf'});
-    await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(file));
-  }catch(err){showToast('Errore PDF: '+err.message,true);}
+function closePagesModal(){
+  $('pagesModal').style.display='none';
+  collectedFiles=[];
+}
+
+function selectPages(n){
+  expectedPages=n;
+  collectedFiles=[];
+  $('pagesModal').style.display='none';
+  $('sourceModal').style.display='flex';
+}
+
+function closeSourceModal(){
+  $('sourceModal').style.display='none';
+  collectedFiles=[];
+}
+
+function selectSource(src){
+  selectedSource=src;
+  const input=$('fileInput');
+  if(src==='camera'){
+    input.setAttribute('capture','environment');
+    input.setAttribute('accept','image/*');
+  }else{
+    input.removeAttribute('capture');
+    input.setAttribute('accept','image/*,application/pdf');
+  }
+  $('sourceModal').style.display='none';
+  input.click();
 }
 
 async function sha256(plain){
@@ -238,7 +307,7 @@ function logout(){
 }
 
 function saveFolder(){
-  FOLDER=$('folderInput').value.trim()||'/Ricevute';
+  FOLDER=$('folderInput').value.trim()||'/spesefiscali';
   localStorage.setItem('dbx_folder',FOLDER);
   showToast('✓ Cartella: '+FOLDER);
   $('settingsPanel').style.display='none';
@@ -271,62 +340,284 @@ function showMain(){
   getUserInfo();loadReceipts();
 }
 
-async function loadJsPDF(){
-  if(window.jspdf)return window.jspdf.jsPDF;
-  await new Promise((res,rej)=>{
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-    s.onload=res;s.onerror=rej;document.head.appendChild(s);
-  });
-  return window.jspdf.jsPDF;
-}
-
-async function imageToPdf(file){
-  const jsPDF=await loadJsPDF();
+function loadImage(file){
   return new Promise((resolve,reject)=>{
     const img=new Image();
     const url=URL.createObjectURL(file);
-    img.onload=()=>{
-      const w=img.naturalWidth,h=img.naturalHeight;
-      const isLandscape=w>h;
-      const doc=new jsPDF({orientation:isLandscape?'landscape':'portrait',unit:'mm',format:'a4'});
-      const pw=isLandscape?297:210,ph=isLandscape?210:297;
-      const ratio=Math.min(pw/w,ph/h);
-      const iw=w*ratio,ih=h*ratio;
-      const ox=(pw-iw)/2,oy=(ph-ih)/2;
-      const canvas=document.createElement('canvas');
-      canvas.width=w;canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0);
-      const dataUrl=canvas.toDataURL('image/jpeg',0.92);
-      URL.revokeObjectURL(url);
-      doc.addImage(dataUrl,'JPEG',ox,oy,iw,ih);
-      resolve(doc.output('blob'));
-    };
-    img.onerror=reject;
+    img.onload=()=>{URL.revokeObjectURL(url);resolve(img);};
+    img.onerror=e=>{URL.revokeObjectURL(url);reject(e);};
     img.src=url;
   });
 }
 
+async function imagesToPdf(files){
+  const a4w=595,a4h=842;
+  const enc=new TextEncoder();
+  const pageData=[];
+  for(const file of files){
+    const img=await loadImage(file);
+    const w=img.naturalWidth,h=img.naturalHeight;
+    const scale=Math.min(a4w/w,a4h/h,1);
+    const pw=Math.round(w*scale),ph=Math.round(h*scale);
+    const ox=Math.round((a4w-pw)/2),oy=Math.round((a4h-ph)/2);
+    const canvas=document.createElement('canvas');
+    canvas.width=a4w;canvas.height=a4h;
+    const ctx=canvas.getContext('2d');
+    ctx.fillStyle='white';ctx.fillRect(0,0,a4w,a4h);
+    ctx.drawImage(img,ox,oy,pw,ph);
+    const jpegData=canvas.toDataURL('image/jpeg',0.92).split(',')[1];
+    const imgBytes=atob(jpegData);
+    const imgLen=imgBytes.length;
+    const imgArr=new Uint8Array(imgLen);
+    for(let i=0;i<imgLen;i++)imgArr[i]=imgBytes.charCodeAt(i);
+    pageData.push({w,h,pw,ph,ox,oy,imgArr,imgLen});
+  }
+  const chunks=[];let offset=0;
+  const push=data=>{const u8=typeof data==='string'?enc.encode(data):data;chunks.push(u8);offset+=u8.length;};
+  const offsets=[];
+  push('%PDF-1.4\n');
+  offsets.push(offset);
+  push('1 0 obj<</Type /Catalog /Pages 2 0 R>>endobj\n');
+  offsets.push(offset);
+  const kids=pageData.map((_,i)=>(3+i*3)+' 0 R').join(' ');
+  push('2 0 obj<</Type /Pages /Kids ['+kids+'] /Count '+pageData.length+'>>endobj\n');
+  pageData.forEach((p,i)=>{
+    const pageId=3+i*3,contentId=pageId+1,imgId=pageId+2;
+    offsets.push(offset);
+    push(pageId+' 0 obj<</Type /Page /Parent 2 0 R /MediaBox [0 0 '+a4w+' '+a4h+'] /Contents '+contentId+' 0 R /Resources <</XObject <</Im1 '+imgId+' 0 R>>>>>>endobj\n');
+    const stream='q '+p.pw+' 0 0 '+p.ph+' '+p.ox+' '+p.oy+' cm /Im1 Do Q';
+    offsets.push(offset);
+    push(contentId+' 0 obj<</Length '+stream.length+'>>\nstream\n'+stream+'\nendstream endobj\n');
+    offsets.push(offset);
+    push(imgId+' 0 obj<</Type /XObject /Subtype /Image /Width '+p.w+' /Height '+p.h+' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+p.imgLen+'>>\nstream\n');
+    push(p.imgArr);
+    push('\nendstream endobj\n');
+  });
+  const xrefPos=offset;
+  const totalObjs=2+pageData.length*3;
+  let xref='xref\n0 '+(totalObjs+1)+'\n0000000000 65535 f \n';
+  offsets.forEach(o=>{xref+=String(o).padStart(10,'0')+' 00000 n \n';});
+  xref+='trailer<</Size '+(totalObjs+1)+' /Root 1 0 R>>\nstartxref\n'+xrefPos+'\n%%EOF';
+  push(xref);
+  const total=new Uint8Array(offset);
+  let pos=0;for(const c of chunks){total.set(c,pos);pos+=c.length;}
+  return new Blob([total],{type:'application/pdf'});
+}
+
 async function handleFile(e){
-  const file=e.target.files[0];if(!file)return;e.target.value='';
+  const file=e.target.files[0];
+  e.target.value='';
+  if(!file){
+    if(collectedFiles.length>0){showToast('Annullato');collectedFiles=[];}
+    return;
+  }
+  if(file.type==='application/pdf'){
+    const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+    const name='ricevuta_'+ts+'.pdf';
+    collectedFiles=[];
+    await uploadFile(file,name,null);
+    return;
+  }
+  try{ await openCropModal(file); }
+  catch(err){ showToast('Errore foto: '+err.message,true); collectedFiles=[]; }
+}
+
+async function continueAfterCrop(file){
+  collectedFiles.push(file);
+  if(collectedFiles.length<expectedPages){
+    showToast('✓ Pagina '+collectedFiles.length+' di '+expectedPages);
+    $('fileInput').click();
+    return;
+  }
+  const filesToUse=collectedFiles;collectedFiles=[];
   const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-  showToast('⏳ Conversione in PDF...');
+  showToast('⏳ Creazione PDF ('+filesToUse.length+' pagin'+(filesToUse.length===1?'a':'e')+')...');
   try{
-    const pdfBlob=await imageToPdf(file);
+    const pdfBlob=await imagesToPdf(filesToUse);
     const pdfFile=new File([pdfBlob],'ricevuta_'+ts+'.pdf',{type:'application/pdf'});
-    await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(file));
+    await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(filesToUse[0]));
   }catch(err){showToast('Errore PDF: '+err.message,true);}
 }
 
-async function createFolderIfNeeded(folderPath){
-  try{
-    await fetch('https://api.dropboxapi.com/2/files/create_folder_v2',{
-      method:'POST',
-      headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},
-      body:JSON.stringify({path:folderPath,autorename:false})
-    });
-  }catch{}
+// ----- Crop + scan modal -----
+let cropImg=null,cropRect=null,cropScale=1,cropDrag=null;
+
+async function openCropModal(file){
+  const img=await loadImage(file);
+  cropImg=img;
+  // Show modal first so stage gets real dimensions, then measure on next frame
+  $('cropModal').style.display='flex';
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  const stage=$('cropStage');
+  const rect=stage.getBoundingClientRect();
+  const iw=img.naturalWidth,ih=img.naturalHeight;
+  const sw=rect.width||window.innerWidth;
+  const sh=rect.height||(window.innerHeight-140);
+  cropScale=Math.min(sw/iw,sh/ih);
+  const dw=Math.max(1,Math.round(iw*cropScale));
+  const dh=Math.max(1,Math.round(ih*cropScale));
+  const canvas=$('cropCanvas');
+  canvas.width=dw;canvas.height=dh;
+  canvas.style.width=dw+'px';canvas.style.height=dh+'px';
+  canvas.style.left=Math.round((sw-dw)/2)+'px';
+  canvas.style.top=Math.round((sh-dh)/2)+'px';
+  // Default: small inset so corners are grabbable
+  const m=0.04;
+  cropRect={left:iw*m,top:ih*m,right:iw*(1-m),bottom:ih*(1-m)};
+  drawCropCanvas();
 }
+
+function drawCropCanvas(){
+  if(!cropImg||!cropRect)return;
+  const canvas=$('cropCanvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(cropImg,0,0,canvas.width,canvas.height);
+  const s=cropScale;
+  const l=cropRect.left*s,t=cropRect.top*s,r=cropRect.right*s,b=cropRect.bottom*s;
+  // Dim outside the rect
+  ctx.fillStyle='rgba(0,0,0,0.55)';
+  ctx.fillRect(0,0,canvas.width,t);
+  ctx.fillRect(0,b,canvas.width,canvas.height-b);
+  ctx.fillRect(0,t,l,b-t);
+  ctx.fillRect(r,t,canvas.width-r,b-t);
+  // Rect border
+  ctx.strokeStyle='#00d084';ctx.lineWidth=2;
+  ctx.strokeRect(l,t,r-l,b-t);
+  // Edge handles (4 bars at the center of each side)
+  const mx=(l+r)/2,my=(t+b)/2;
+  const bar={long:60,short:10};
+  const drawBar=(x,y,horizontal)=>{
+    const w=horizontal?bar.long:bar.short;
+    const h=horizontal?bar.short:bar.long;
+    ctx.fillStyle='rgba(255,255,255,0.92)';
+    ctx.fillRect(x-w/2,y-h/2,w,h);
+    ctx.strokeStyle='#00d084';ctx.lineWidth=3;
+    ctx.strokeRect(x-w/2,y-h/2,w,h);
+  };
+  drawBar(mx,t,true);   // top
+  drawBar(mx,b,true);   // bottom
+  drawBar(l,my,false);  // left
+  drawBar(r,my,false);  // right
+}
+
+function cropPointerPos(e){
+  const canvas=$('cropCanvas');
+  const r=canvas.getBoundingClientRect();
+  const t=(e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e;
+  return {x:(t.clientX-r.left)/cropScale,y:(t.clientY-r.top)/cropScale};
+}
+
+function onCropStart(e){
+  if(!cropRect||$('cropModal').style.display==='none')return;
+  e.preventDefault();
+  const p=cropPointerPos(e);
+  const l=cropRect.left,t=cropRect.top,r=cropRect.right,b=cropRect.bottom;
+  // Hit test: distance to each side center (scaled to screen px via cropScale)
+  const sides=[
+    {k:'t',x:(l+r)/2,y:t},
+    {k:'b',x:(l+r)/2,y:b},
+    {k:'l',x:l,y:(t+b)/2},
+    {k:'r',x:r,y:(t+b)/2}
+  ];
+  let best=null,bd=Infinity;
+  sides.forEach(c=>{const d=Math.hypot(c.x-p.x,c.y-p.y);if(d<bd){bd=d;best=c;}});
+  if(bd*cropScale<48)cropDrag=best.k;
+}
+
+function onCropMove(e){
+  if(!cropDrag||!cropRect)return;
+  e.preventDefault();
+  const p=cropPointerPos(e);
+  const iw=cropImg.naturalWidth,ih=cropImg.naturalHeight;
+  const x=Math.max(0,Math.min(iw,p.x)),y=Math.max(0,Math.min(ih,p.y));
+  const min=20;
+  if(cropDrag==='t')     cropRect.top=Math.max(0,Math.min(y,cropRect.bottom-min));
+  else if(cropDrag==='b')cropRect.bottom=Math.min(ih,Math.max(y,cropRect.top+min));
+  else if(cropDrag==='l')cropRect.left=Math.max(0,Math.min(x,cropRect.right-min));
+  else if(cropDrag==='r')cropRect.right=Math.min(iw,Math.max(x,cropRect.left+min));
+  drawCropCanvas();
+}
+
+function onCropEnd(){cropDrag=null;}
+
+function applyScanFilter(ctx,w,h){
+  const img=ctx.getImageData(0,0,w,h);
+  const d=img.data;
+  const hist=new Uint32Array(256);
+  const total=w*h;
+  for(let i=0;i<d.length;i+=4){
+    const g=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000|0;
+    hist[g]++;
+  }
+  let lo=0,hi=255,acc=0;
+  for(let i=0;i<256;i++){acc+=hist[i];if(acc>total*0.02){lo=i;break;}}
+  acc=0;
+  for(let i=255;i>=0;i--){acc+=hist[i];if(acc>total*0.02){hi=i;break;}}
+  const range=Math.max(1,hi-lo);
+  const lut=new Uint8Array(256);
+  for(let i=0;i<256;i++){
+    let v=(i-lo)/range*255;
+    v=Math.max(0,Math.min(255,v));
+    v=128+(v-128)*1.5; // S-curve contrast
+    v=Math.max(0,Math.min(255,v));
+    if(v>225)v=255;   // snap near-white to white
+    lut[i]=v|0;
+  }
+  for(let i=0;i<d.length;i+=4){
+    const g=(d[i]*299+d[i+1]*587+d[i+2]*114)/1000|0;
+    const v=lut[g];
+    d[i]=d[i+1]=d[i+2]=v;
+  }
+  ctx.putImageData(img,0,0);
+}
+
+async function confirmCrop(){
+  if(!cropImg||!cropRect)return;
+  const doScan=$('scanMode').checked;
+  showToast('⏳ Elaborazione...');
+  await new Promise(r=>setTimeout(r,30));
+  try{
+    const cw=Math.max(1,Math.round(cropRect.right-cropRect.left));
+    const ch=Math.max(1,Math.round(cropRect.bottom-cropRect.top));
+    const canvas=document.createElement('canvas');
+    canvas.width=cw;canvas.height=ch;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(cropImg,cropRect.left,cropRect.top,cw,ch,0,0,cw,ch);
+    if(doScan)applyScanFilter(ctx,cw,ch);
+    const blob=await new Promise((res,rej)=>canvas.toBlob(b=>b?res(b):rej(new Error('toBlob failed')),'image/jpeg',0.9));
+    const page=new File([blob],'page.jpg',{type:'image/jpeg'});
+    $('cropModal').style.display='none';
+    cropImg=null;cropRect=null;
+    await continueAfterCrop(page);
+  }catch(err){
+    showToast('Errore ritaglio: '+err.message,true);
+    $('cropModal').style.display='none';
+    cropImg=null;cropRect=null;
+    collectedFiles=[];
+  }
+}
+
+function cancelCrop(){
+  $('cropModal').style.display='none';
+  cropImg=null;cropRect=null;
+  collectedFiles=[];
+  showToast('Annullato');
+}
+
+// Attach crop pointer listeners safely (wrapped so any failure can't break app init)
+try{
+  const _cc=document.getElementById('cropCanvas');
+  if(_cc){
+    _cc.addEventListener('touchstart',onCropStart,{passive:false});
+    _cc.addEventListener('touchmove',onCropMove,{passive:false});
+    _cc.addEventListener('touchend',onCropEnd);
+    _cc.addEventListener('touchcancel',onCropEnd);
+    _cc.addEventListener('mousedown',onCropStart);
+    window.addEventListener('mousemove',onCropMove);
+    window.addEventListener('mouseup',onCropEnd);
+  }
+}catch(e){console.error('crop listeners setup failed',e);}
 
 async function doUpload(buf,path){
   return fetch('https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':JSON.stringify({path,mode:'add',autorename:true,mute:false}),'Content-Type':'application/octet-stream'},body:buf});
@@ -337,7 +628,6 @@ async function uploadFile(file,name,previewUrl){
   receipts.unshift({id,name,path,status:'uploading',url:previewUrl||URL.createObjectURL(file),date:new Date()});
   renderList();setLoading(true);
   try{
-    await createFolderIfNeeded(FOLDER);
     const buf=await file.arrayBuffer();
     let res=await doUpload(buf,path);
     if(res.status===401){const ok=await refreshToken();if(!ok){logout();return;}res=await doUpload(buf,path);}
@@ -354,7 +644,7 @@ async function loadReceipts(){
   receipts=[];
   try{
     for(const year of YEARS){
-      const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/SpeseFiscali_'+year,limit:100,recursive:true})});
+      const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/spesefiscali_'+year,limit:100,recursive:true})});
       if(res.status===409)continue;
       if(res.status===401){const ok=await refreshToken();if(ok){loadReceipts();return;}logout();return;}
       if(!res.ok)continue;
