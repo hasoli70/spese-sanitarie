@@ -59,6 +59,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .user-avatar{width:36px;height:36px;border-radius:50%;background:#1a6b4a;color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0}
 .user-name{font-size:14px;font-weight:600;color:#111}
 .user-sub{font-size:12px;color:#666}
+.tabs{display:flex;gap:6px;background:#f0f0ec;padding:4px;border-radius:12px;margin-bottom:12px}
+.tab{flex:1;padding:10px 6px;border:none;border-radius:9px;background:transparent;font-size:14px;font-weight:600;color:#666;cursor:pointer;font-family:inherit}
+.tab.active{background:#fff;color:#1a6b4a;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
+.search-input{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:15px;background:#f9f9f9;margin-bottom:14px;font-family:inherit}
+.receipt-info.clickable{cursor:pointer}
+.warranty-exp{font-size:12px;margin-top:2px;color:#1a6b4a}
+.warranty-exp.expired{color:#c0392b}
+.form-label{display:block;font-size:13px;font-weight:600;color:#555;margin:14px 0 6px}
+.form-input{width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:10px;font-size:16px;background:#f9f9f9;color:#111;font-family:inherit}
 </style>
 </head>
 <body>
@@ -86,13 +95,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="user-avatar" id="userAvatar">O</div>
         <div><div class="user-name" id="userName"></div><div class="user-sub" id="userEmail"></div></div>
       </div>
+      <div class="tabs">
+        <button class="tab active" id="tab_ricevute" onclick="setTab('ricevute')">🧾 Ricevute</button>
+        <button class="tab" id="tab_garanzie" onclick="setTab('garanzie')">🛡️ Garanzie</button>
+      </div>
+      <input type="search" class="search-input" id="searchInput" placeholder="🔍 Cerca per nome o cartella..." oninput="renderList()" />
       <div id="loadingBar" class="loading-bar" style="display:none"><div class="loading-bar-inner"></div></div>
       <div class="section-title" id="listTitle">Le tue ricevute</div>
       <div id="receiptList" class="receipt-list"></div>
       <div id="emptyState" class="empty-state" style="display:none">
-        <div class="empty-icon">🧾</div>
-        <p style="font-weight:600;margin-bottom:8px;color:#333">Nessuna ricevuta</p>
-        <p style="font-size:13px">Usa il pulsante fotocamera per aggiungere una ricevuta</p>
+        <div class="empty-icon" id="emptyIcon">🧾</div>
+        <p style="font-weight:600;margin-bottom:8px;color:#333" id="emptyTitle">Nessuna ricevuta</p>
+        <p style="font-size:13px" id="emptyText">Usa il pulsante fotocamera per aggiungere una ricevuta</p>
       </div>
     </div>
   </div>
@@ -115,11 +129,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- Warranty modal -->
+<div id="warrantyModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center;">
+  <div style="background:white;width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:24px 20px 40px;">
+    <div style="font-size:16px;font-weight:700;color:#111;margin-bottom:6px;">🛡️ Nuova garanzia</div>
+    <div style="font-size:13px;color:#888;">Dai un titolo per riconoscerla subito, poi fotografa scontrino e garanzia</div>
+    <label class="form-label" for="warrantyTitle">Titolo</label>
+    <input type="text" class="form-input" id="warrantyTitle" maxlength="60" placeholder="Es. Lavatrice Bosch" autocomplete="off" />
+    <label class="form-label" for="warrantyDate">Data di acquisto</label>
+    <input type="date" class="form-input" id="warrantyDate" />
+    <button onclick="confirmWarranty()" style="width:100%;margin-top:20px;padding:14px;background:#1a6b4a;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;color:white;font-family:inherit;">Avanti →</button>
+    <button onclick="closeWarrantyModal()" style="width:100%;margin-top:10px;padding:12px;background:#f5f5f5;border:none;border-radius:10px;font-size:15px;cursor:pointer;color:#666;">Annulla</button>
+  </div>
+</div>
+
 <!-- Pages count modal -->
 <div id="pagesModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:200;align-items:flex-end;justify-content:center;">
   <div style="background:white;width:100%;max-width:480px;border-radius:20px 20px 0 0;padding:24px 20px 40px;">
     <div style="font-size:16px;font-weight:700;color:#111;margin-bottom:6px;">📄 Quante pagine?</div>
-    <div style="font-size:13px;color:#888;margin-bottom:20px;">Scegli quante foto scattare per questa ricevuta</div>
+    <div style="font-size:13px;color:#888;margin-bottom:20px;" id="pagesSub">Scegli quante foto scattare per questa ricevuta</div>
     <div style="display:flex;gap:6px;">
       <button onclick="selectPages(1)" style="flex:1;min-width:0;padding:18px 2px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:13px;cursor:pointer;color:#111;font-family:inherit;font-weight:600;line-height:1.3;">📄<br/>1 pagina</button>
       <button onclick="selectPages(2)" style="flex:1;min-width:0;padding:18px 2px;background:#f9f9f9;border:2px solid #eee;border-radius:12px;font-size:13px;cursor:pointer;color:#111;font-family:inherit;font-weight:600;line-height:1.3;">📄<br/>2 pagine</button>
@@ -163,7 +191,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<button class="fab-btn" id="cameraBtn" style="display:none" onclick="showCatModal()">
+<button class="fab-btn" id="cameraBtn" style="display:none" onclick="startNew()">
   <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -176,9 +204,64 @@ const APP_KEY='o4uhth8m0cz03bq';
 const REDIRECT_URI=location.origin+location.pathname;
 let TOKEN='',FOLDER='/spesefiscali_2026',receipts=[],toastTimer,pendingFile=null,selectedYear='2026';
 let expectedPages=1,collectedFiles=[],selectedSource='camera';
+let activeTab='ricevute',docKind='ricevuta',warrantyTitle='',warrantyDate='';
 const $=id=>document.getElementById(id);
 
 const YEARS=['2025','2026'];
+const GARANZIE_FOLDER='/garanzie';
+const WARRANTY_YEARS=2; // garanzia legale
+
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const isWarranty=path=>path.toLowerCase().startsWith(GARANZIE_FOLDER+'/');
+
+// Nome file garanzia: <data acquisto>_<titolo>.pdf
+function warrantyInfo(name){
+  const m=name.match(/^(\d{4}-\d{2}-\d{2})_(.+)\.pdf$/i);
+  return m?{title:m[2],bought:m[1]}:{title:name.replace(/\.pdf$/i,''),bought:null};
+}
+
+function sanitizeTitle(t){
+  return t.replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim().replace(/[. ]+$/,'').slice(0,60);
+}
+
+function fileNameFor(ts){
+  return docKind==='garanzia'?warrantyDate+'_'+warrantyTitle+'.pdf':'ricevuta_'+ts+'.pdf';
+}
+
+function setTab(tab){
+  activeTab=tab;
+  $('tab_ricevute').classList.toggle('active',tab==='ricevute');
+  $('tab_garanzie').classList.toggle('active',tab==='garanzie');
+  renderList();
+}
+
+function startNew(){
+  if(activeTab==='garanzie')showWarrantyModal();else showCatModal();
+}
+
+function showWarrantyModal(){
+  $('warrantyTitle').value='';
+  $('warrantyDate').value=todayISO();
+  $('warrantyModal').style.display='flex';
+  setTimeout(()=>$('warrantyTitle').focus(),50);
+}
+
+function closeWarrantyModal(){
+  $('warrantyModal').style.display='none';
+}
+
+function confirmWarranty(){
+  const title=sanitizeTitle($('warrantyTitle').value);
+  if(!title){showToast('Inserisci un titolo',true);$('warrantyTitle').focus();return;}
+  warrantyTitle=title;
+  warrantyDate=$('warrantyDate').value||todayISO();
+  docKind='garanzia';
+  FOLDER=GARANZIE_FOLDER;
+  $('warrantyModal').style.display='none';
+  $('pagesSub').textContent='Es. 2 pagine: prima lo scontrino, poi la garanzia';
+  $('pagesModal').style.display='flex';
+}
 
 function getCategories(year){
   const base='/spesefiscali_'+year;
@@ -226,6 +309,8 @@ function selectCategory(idx){
   $('catModal').style.display='none';
   const cat=getCategories(selectedYear)[idx];
   FOLDER=cat.folder;
+  docKind='ricevuta';
+  $('pagesSub').textContent='Scegli quante foto scattare per questa ricevuta';
   $('pagesModal').style.display='flex';
 }
 
@@ -413,7 +498,7 @@ async function handleFile(e){
   }
   if(file.type==='application/pdf'){
     const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-    const name='ricevuta_'+ts+'.pdf';
+    const name=fileNameFor(ts);
     collectedFiles=[];
     await uploadFile(file,name,null);
     return;
@@ -434,8 +519,9 @@ async function continueAfterCrop(file){
   showToast('⏳ Creazione PDF ('+filesToUse.length+' pagin'+(filesToUse.length===1?'a':'e')+')...');
   try{
     const pdfBlob=await imagesToPdf(filesToUse);
-    const pdfFile=new File([pdfBlob],'ricevuta_'+ts+'.pdf',{type:'application/pdf'});
-    await uploadFile(pdfFile,'ricevuta_'+ts+'.pdf',URL.createObjectURL(filesToUse[0]));
+    const name=fileNameFor(ts);
+    const pdfFile=new File([pdfBlob],name,{type:'application/pdf'});
+    await uploadFile(pdfFile,name,URL.createObjectURL(filesToUse[0]));
   }catch(err){showToast('Errore PDF: '+err.message,true);}
 }
 
@@ -633,8 +719,8 @@ async function uploadFile(file,name,previewUrl){
     if(res.status===401){const ok=await refreshToken();if(!ok){logout();return;}res=await doUpload(buf,path);}
     if(!res.ok){const err=await res.json().catch(()=>({}));throw new Error(err.error_summary||'Errore '+res.status);}
     const d=await res.json();
-    const r=receipts.find(x=>x.id===id);if(r){r.status='ok';r.path=d.path_display;r.id=d.id||id;}
-    showToast('✓ Ricevuta salvata!');
+    const r=receipts.find(x=>x.id===id);if(r){r.status='ok';r.path=d.path_display;r.name=d.name||r.name;r.id=d.id||id;}
+    showToast(isWarranty(path)?'✓ Garanzia salvata!':'✓ Ricevuta salvata!');
   }catch(err){const r=receipts.find(x=>x.id===id);if(r)r.status='error';showToast('Errore: '+err.message,true);}
   setLoading(false);renderList();
 }
@@ -643,8 +729,9 @@ async function loadReceipts(){
   setLoading(true);
   receipts=[];
   try{
-    for(const year of YEARS){
-      const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:'/spesefiscali_'+year,limit:100,recursive:true})});
+    const roots=YEARS.map(y=>'/spesefiscali_'+y).concat(GARANZIE_FOLDER);
+    for(const root of roots){
+      const res=await fetch('https://api.dropboxapi.com/2/files/list_folder',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:root,limit:100,recursive:true})});
       if(res.status===409)continue;
       if(res.status===401){const ok=await refreshToken();if(ok){loadReceipts();return;}logout();return;}
       if(!res.ok)continue;
@@ -682,22 +769,72 @@ window.deleteReceipt=async function(rid){
   setLoading(false);
 };
 
+window.openDoc=async function(rid){
+  const r=receipts.find(x=>x.id==rid);
+  if(!r||r.status!=='ok')return;
+  // Apri la finestra subito (nel gesto utente) per evitare il blocco popup su iOS
+  const w=window.open('','_blank');
+  const getLink=()=>fetch('https://api.dropboxapi.com/2/files/get_temporary_link',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:r.path})});
+  try{
+    let res=await getLink();
+    if(res.status===401){const ok=await refreshToken();if(!ok){if(w)w.close();logout();return;}res=await getLink();}
+    if(!res.ok)throw new Error('Errore '+res.status);
+    const d=await res.json();
+    if(w)w.location.href=d.link;else location.href=d.link;
+  }catch(err){if(w)w.close();showToast('Errore apertura: '+err.message,true);}
+};
+
+function fmtDate(d){return d.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});}
+
+function warrantyLines(r){
+  const info=warrantyInfo(r.name);
+  if(!info.bought)return {title:info.title,sub:fmtDate(r.date),exp:''};
+  const bought=new Date(info.bought+'T00:00:00');
+  const until=new Date(bought);until.setFullYear(until.getFullYear()+WARRANTY_YEARS);
+  const expired=until<new Date();
+  return {
+    title:info.title,
+    sub:'Acquisto: '+fmtDate(bought),
+    exp:`<div class="warranty-exp${expired?' expired':''}">${expired?'⚠ Garanzia scaduta il ':'🛡️ Garanzia fino al '}${fmtDate(until)}</div>`
+  };
+}
+
 function renderList(){
   const list=$('receiptList'),empty=$('emptyState'),title=$('listTitle');
-  if(receipts.length===0){list.innerHTML='';empty.style.display='block';title.textContent='Le tue ricevute';return;}
+  const wantWarranty=activeTab==='garanzie';
+  const q=$('searchInput').value.trim().toLowerCase();
+  const items=receipts.filter(r=>isWarranty(r.path)===wantWarranty&&(!q||r.path.toLowerCase().includes(q)||r.name.toLowerCase().includes(q)));
+  if(items.length===0){
+    list.innerHTML='';empty.style.display='block';
+    title.textContent=wantWarranty?'Le tue garanzie':'Le tue ricevute';
+    $('emptyIcon').textContent=wantWarranty?'🛡️':'🧾';
+    $('emptyTitle').textContent=q?'Nessun risultato':(wantWarranty?'Nessuna garanzia':'Nessuna ricevuta');
+    $('emptyText').textContent=q?'Prova con un altro termine di ricerca':(wantWarranty?'Usa il pulsante fotocamera per salvare scontrino e garanzia':'Usa il pulsante fotocamera per aggiungere una ricevuta');
+    return;
+  }
   empty.style.display='none';
-  title.textContent=receipts.length+' ricevut'+(receipts.length===1?'a':'e');
-  list.innerHTML=receipts.map(r=>`
+  title.textContent=wantWarranty
+    ?items.length+' garanzi'+(items.length===1?'a':'e')
+    :items.length+' ricevut'+(items.length===1?'a':'e');
+  list.innerHTML=items.map(r=>{
+    const w=isWarranty(r.path)?warrantyLines(r):null;
+    return `
     <div class="receipt-card">
       <div class="receipt-thumb">
-        ${r.name.endsWith('.pdf')
+        ${w
+          ? `<span style="font-size:28px">🛡️</span>`
+          : r.name.endsWith('.pdf')
           ? `<span style="font-size:28px">📄</span>`
           : `<span style="font-size:24px;${r.url?'display:none':''}">🧾</span><img data-thumb="${r.id}" src="${r.url||''}" alt="" style="display:${r.url?'block':'none'};" />`
         }
       </div>
-      <div class="receipt-info">
-        <div class="receipt-name">${r.name}</div>
-        <div class="receipt-date">${r.date.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})} · ${r.path.split('/').slice(1,3).join('/')}</div>
+      <div class="receipt-info${r.status==='ok'?' clickable':''}" onclick="openDoc('${r.id}')">
+        ${w
+          ? `<div class="receipt-name">${esc(w.title)}</div>
+        <div class="receipt-date">${w.sub}</div>${w.exp}`
+          : `<div class="receipt-name">${esc(r.name)}</div>
+        <div class="receipt-date">${fmtDate(r.date)} · ${esc(r.path.split('/').slice(1,3).join('/'))}</div>`
+        }
         <div class="receipt-status ${r.status==='ok'?'status-ok':r.status==='uploading'?'status-uploading':'status-error'}">
           ${r.status==='ok'?'✓ Salvata su Dropbox':r.status==='uploading'?'<span class="spinner"></span> Caricamento...':'✗ Errore'}
         </div>
@@ -706,7 +843,7 @@ function renderList(){
         <button class="btn-hide" onclick="hideReceipt('${r.id}')">👁</button>
         <button class="btn-danger" onclick="deleteReceipt('${r.id}')">🗑</button>
       </div>`:''}
-    </div>`).join('');
+    </div>`;}).join('');
 }
 
 async function init(){

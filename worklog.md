@@ -2,6 +2,17 @@
 
 Registro cronologico delle modifiche all'app Spese Sanitarie. Voce più recente in alto.
 
+## 2026-09-30
+
+### Repository garanzie
+- `index.html`: schede "🧾 Ricevute" / "🛡️ Garanzie" sopra la lista, con campo di ricerca (nome o percorso).
+- Nella scheda Garanzie il pulsante fotocamera apre `warrantyModal`: titolo (obbligatorio) + data di acquisto, poi il solito flusso pagine → fotografa/carica → crop → PDF.
+- Salvataggio in `/garanzie/<YYYY-MM-DD>_<titolo>.pdf` (titolo ripulito dai caratteri non ammessi da Dropbox).
+- La scheda garanzia mostra titolo, data di acquisto e scadenza garanzia legale (+2 anni, rosso se scaduta).
+- Tocco su una scheda (ricevuta o garanzia) → apre il PDF via `files/get_temporary_link`.
+- `loadReceipts` legge anche `/garanzie`; nomi file ora escapati in HTML.
+- `sw.js`: cache v8 → v9.
+
 ## 2026-05-19
 
 ### Bump cache service worker → v8
