@@ -4,6 +4,10 @@ Registro cronologico delle modifiche all'app Spese Sanitarie. Voce più recente 
 
 ## 2026-09-30
 
+### Fotocamera per le pagine successive
+- Dopo la pagina 1 l'app chiamava `fileInput.click()` da sola (dopo operazioni async) → su iOS bloccato, la fotocamera non si riapriva. Ora compare `nextPageModal` con il bottone "📷 Scatta pagina N": il tocco dell'utente riapre la fotocamera.
+- `sw.js`: cache v10 → v11.
+
 ### Fix leggibilità PDF
 - `imagesToPdf`: prima ogni foto veniva ridotta a 595×842 px (A4 a 72 dpi) → scontrini lunghi e stretti illeggibili. Ora l'immagine mantiene la sua risoluzione (lato lungo max 2400 px, JPEG 0.85) e viene scalata sulla pagina A4 dal PDF stesso. Corretto anche `/Width /Height` dell'XObject che non corrispondeva al JPEG reale.
 - Filtro Scansione B/N: soglia "snap al bianco" 225 → 240 per non cancellare il testo sbiadito degli scontrini termici.
