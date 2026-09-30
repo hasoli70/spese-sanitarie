@@ -4,6 +4,13 @@ Registro cronologico delle modifiche all'app Spese Sanitarie. Voce più recente 
 
 ## 2026-09-30
 
+### Visore documenti nell'app + versione visibile
+- 👁 ora apre il documento (prima "nascondeva" la scheda fino al reload). Rimossa `hideReceipt`.
+- Nuovo `viewerModal`: scarica il file con `files/download`, estrae i JPEG dal PDF (`extractJpegs`) e mostra le pagine come immagini, tocco per ingrandire, pinch-zoom abilitato solo nel visore; bottone "Apri ↗" per il file originale. Anche il tocco sulla scheda usa il visore (niente più `window.open`, inaffidabile nella PWA iOS).
+- `dbxArg()`: header `Dropbox-API-Arg` con caratteri non ASCII escapati → upload di garanzie con titoli accentati non fallisce più.
+- Numero versione visibile nell'header ("Spese Sanitarie · v13") per capire se il telefono ha l'ultima versione.
+- `sw.js`: cache v12 → v13.
+
 ### Tab "⏰ Scadenze"
 - Terza scheda con tutte le garanzie ordinate per scadenza (acquisto + 2 anni), raggruppate in: In scadenza (entro 90 giorni), Attive, Scadute, Senza data.
 - Badge con giorni rimanenti (≤ 90 gg) o mesi; tocco → apre il PDF. Il pulsante fotocamera da questa scheda crea una nuova garanzia.

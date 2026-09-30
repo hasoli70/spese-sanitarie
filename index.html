@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<meta name="viewport" id="vp" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -73,6 +73,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .days-ok{background:#e8f5ee;color:#1a6b4a}
 .days-soon{background:#fff4e0;color:#b36b00}
 .days-expired{background:#fff0f0;color:#c0392b}
+.viewer-body{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:10px;display:flex;flex-direction:column;gap:10px}
+.viewer-img{width:100%;height:auto;background:#fff;border-radius:4px;align-self:flex-start}
+.viewer-img.zoom{width:250%;max-width:none}
+.viewer-msg{color:#bbb;text-align:center;font-size:13px;padding:8px;line-height:1.5}
 .form-label{display:block;font-size:13px;font-weight:600;color:#555;margin:14px 0 6px}
 .form-input{width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:10px;font-size:16px;background:#f9f9f9;color:#111;font-family:inherit}
 </style>
@@ -81,7 +85,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="app">
   <div class="header">
     <div>
-      <div class="header-sub">Spese Sanitarie</div>
+      <div class="header-sub">Spese Sanitarie · v13</div>
       <h1>Ricevute 🏥</h1>
     </div>
     <button class="settings-btn" id="settingsBtn" style="display:none">⚙️</button>
@@ -187,6 +191,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button onclick="takeNextPage()" id="nextPageBtn" style="width:100%;padding:22px 8px;background:#1a6b4a;border:none;border-radius:12px;font-size:17px;cursor:pointer;color:white;font-family:inherit;font-weight:700;">📷 Scatta pagina 2</button>
     <button onclick="cancelNextPage()" style="width:100%;margin-top:12px;padding:12px;background:#f5f5f5;border:none;border-radius:10px;font-size:15px;cursor:pointer;color:#666;">Annulla</button>
   </div>
+</div>
+
+<!-- Document viewer -->
+<div id="viewerModal" style="display:none;position:fixed;inset:0;z-index:400;background:#111;flex-direction:column;">
+  <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));background:#000;color:#fff;">
+    <button onclick="closeViewer()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;width:36px;height:36px;border-radius:50%;font-size:18px;cursor:pointer;flex-shrink:0;">✕</button>
+    <div id="viewerTitle" style="flex:1;min-width:0;font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+    <a id="viewerExt" target="_blank" style="display:none;background:#1a6b4a;color:#fff;text-decoration:none;padding:8px 12px;border-radius:8px;font-size:14px;flex-shrink:0;">Apri ↗</a>
+  </div>
+  <div id="viewerBody" class="viewer-body"></div>
 </div>
 
 <!-- Crop / scan modal -->
@@ -742,7 +756,7 @@ try{
 }catch(e){console.error('crop listeners setup failed',e);}
 
 async function doUpload(buf,path){
-  return fetch('https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':JSON.stringify({path,mode:'add',autorename:true,mute:false}),'Content-Type':'application/octet-stream'},body:buf});
+  return fetch('https://content.dropboxapi.com/2/files/upload',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':dbxArg({path,mode:'add',autorename:true,mute:false}),'Content-Type':'application/octet-stream'},body:buf});
 }
 
 async function uploadFile(file,name,previewUrl){
@@ -784,7 +798,7 @@ async function loadReceipts(){
 
 async function loadThumb(r){
   try{
-    const res=await fetch('https://content.dropboxapi.com/2/files/get_thumbnail',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':JSON.stringify({path:r.path,format:'jpeg',size:'w128h128'})}});
+    const res=await fetch('https://content.dropboxapi.com/2/files/get_thumbnail',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':dbxArg({path:r.path,format:'jpeg',size:'w128h128'})}});
     if(!res.ok)return;
     r.url=URL.createObjectURL(await res.blob());
     const img=document.querySelector('[data-thumb="'+r.id+'"]');
@@ -792,7 +806,6 @@ async function loadThumb(r){
   }catch{}
 }
 
-window.hideReceipt=function(rid){receipts=receipts.filter(x=>x.id!=rid);renderList();showToast('👁 Nascosta (resta su Dropbox)');};
 window.deleteReceipt=async function(rid){
   const r=receipts.find(x=>x.id==rid);
   if(!r||!confirm('Eliminare "'+r.name+'" da Dropbox?'))return;
@@ -805,19 +818,58 @@ window.deleteReceipt=async function(rid){
   setLoading(false);
 };
 
+// Header Dropbox-API-Arg: solo ASCII (accenti nei titoli → \uXXXX)
+function dbxArg(o){return JSON.stringify(o).replace(/[\u007f-\uffff]/g,c=>'\\u'+('000'+c.charCodeAt(0).toString(16)).slice(-4));}
+
+// Estrae le immagini JPEG (DCTDecode) da un PDF: funziona con i PDF creati dall'app e con molte scansioni
+function extractJpegs(u8){
+  const s=new TextDecoder('latin1').decode(u8),out=[];
+  let i=0;
+  while((i=s.indexOf('/DCTDecode',i))!==-1){
+    let st=s.indexOf('stream',i);if(st===-1)break;
+    st+=6;if(s[st]==='\r')st++;if(s[st]==='\n')st++;
+    const en=s.indexOf('endstream',st);if(en===-1)break;
+    if(u8[st]===0xFF&&u8[st+1]===0xD8)out.push(u8.subarray(st,en));
+    i=en;
+  }
+  return out;
+}
+
+let viewerUrls=[];
+function closeViewer(){
+  $('viewerModal').style.display='none';
+  $('viewerBody').innerHTML='';
+  viewerUrls.forEach(u=>URL.revokeObjectURL(u));viewerUrls=[];
+  $('vp').setAttribute('content','width=device-width, initial-scale=1.0, maximum-scale=1.0');
+}
+
 window.openDoc=async function(rid){
   const r=receipts.find(x=>x.id==rid);
   if(!r||r.status!=='ok')return;
-  // Apri la finestra subito (nel gesto utente) per evitare il blocco popup su iOS
-  const w=window.open('','_blank');
-  const getLink=()=>fetch('https://api.dropboxapi.com/2/files/get_temporary_link',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json'},body:JSON.stringify({path:r.path})});
+  $('viewerTitle').textContent=isWarranty(r.path)?warrantyInfo(r.name).title:r.name;
+  $('viewerBody').innerHTML='<div class="viewer-msg"><span class="spinner"></span> Caricamento...</div>';
+  $('viewerExt').style.display='none';
+  $('viewerModal').style.display='flex';
+  $('vp').setAttribute('content','width=device-width, initial-scale=1.0, maximum-scale=5.0'); // pinch-zoom nel visore
+  const dl=()=>fetch('https://content.dropboxapi.com/2/files/download',{method:'POST',headers:{'Authorization':'Bearer '+TOKEN,'Dropbox-API-Arg':dbxArg({path:r.path})}});
   try{
-    let res=await getLink();
-    if(res.status===401){const ok=await refreshToken();if(!ok){if(w)w.close();logout();return;}res=await getLink();}
+    let res=await dl();
+    if(res.status===401){const ok=await refreshToken();if(!ok){closeViewer();logout();return;}res=await dl();}
     if(!res.ok)throw new Error('Errore '+res.status);
-    const d=await res.json();
-    if(w)w.location.href=d.link;else location.href=d.link;
-  }catch(err){if(w)w.close();showToast('Errore apertura: '+err.message,true);}
+    const blob=await res.blob();
+    if($('viewerModal').style.display==='none')return; // chiuso nel frattempo
+    const url=URL.createObjectURL(blob);viewerUrls.push(url);
+    const ext=$('viewerExt');ext.href=url;ext.download=r.name;ext.style.display='inline-block';
+    let pages;
+    if(/\.pdf$/i.test(r.name)){
+      pages=extractJpegs(new Uint8Array(await blob.arrayBuffer())).map(b=>{const u=URL.createObjectURL(new Blob([b],{type:'image/jpeg'}));viewerUrls.push(u);return u;});
+    }else pages=[url];
+    $('viewerBody').innerHTML=pages.length
+      ?'<div class="viewer-msg">Tocca una pagina per ingrandirla</div>'+pages.map(u=>`<img class="viewer-img" src="${u}" alt="" onclick="this.classList.toggle('zoom')" />`).join('')
+      :'<div class="viewer-msg">Anteprima non disponibile per questo PDF.<br/>Usa "Apri" in alto.</div>';
+  }catch(err){
+    $('viewerBody').innerHTML='<div class="viewer-msg">Errore: '+esc(err.message)+'</div>';
+  }
 };
 
 function fmtDate(d){return d.toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});}
@@ -933,7 +985,7 @@ function renderList(){
         </div>
       </div>
       ${r.status!=='uploading'?`<div class="card-actions">
-        <button class="btn-hide" onclick="hideReceipt('${r.id}')">👁</button>
+        ${r.status==='ok'?`<button class="btn-hide" onclick="openDoc('${r.id}')">👁</button>`:''}
         <button class="btn-danger" onclick="deleteReceipt('${r.id}')">🗑</button>
       </div>`:''}
     </div>`;}).join('');
