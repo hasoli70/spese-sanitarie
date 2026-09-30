@@ -66,6 +66,8 @@ Dalla scheda **🛡️ Garanzie** in alto:
 
 Nella lista ogni garanzia mostra titolo, data di acquisto e scadenza della garanzia legale (acquisto + 2 anni), evidenziata in rosso se scaduta.
 
+La scheda **⏰ Scadenze** elenca tutte le garanzie ordinate per data di scadenza, divise in: in scadenza (entro 90 giorni), attive, scadute e senza data.
+
 ## Configurazione iniziale
 
 Al primo avvio ti viene chiesto il login su Dropbox con OAuth (PKCE). Serve un'app Dropbox configurata con:

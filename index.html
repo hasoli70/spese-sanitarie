@@ -60,12 +60,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .user-name{font-size:14px;font-weight:600;color:#111}
 .user-sub{font-size:12px;color:#666}
 .tabs{display:flex;gap:6px;background:#f0f0ec;padding:4px;border-radius:12px;margin-bottom:12px}
-.tab{flex:1;padding:10px 6px;border:none;border-radius:9px;background:transparent;font-size:14px;font-weight:600;color:#666;cursor:pointer;font-family:inherit}
+.tab{flex:1;min-width:0;padding:10px 2px;border:none;border-radius:9px;background:transparent;font-size:13px;white-space:nowrap;font-weight:600;color:#666;cursor:pointer;font-family:inherit}
 .tab.active{background:#fff;color:#1a6b4a;box-shadow:0 1px 4px rgba(0,0,0,0.1)}
 .search-input{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:10px;font-size:15px;background:#f9f9f9;margin-bottom:14px;font-family:inherit}
 .receipt-info.clickable{cursor:pointer}
 .warranty-exp{font-size:12px;margin-top:2px;color:#1a6b4a}
 .warranty-exp.expired{color:#c0392b}
+.exp-group{font-size:13px;font-weight:700;margin:18px 0 8px;color:#333}
+.exp-group:first-child{margin-top:0}
+.days-badge{flex-shrink:0;min-width:64px;text-align:center;padding:8px 6px;border-radius:10px;font-size:12px;font-weight:700;line-height:1.2}
+.days-badge b{display:block;font-size:20px}
+.days-ok{background:#e8f5ee;color:#1a6b4a}
+.days-soon{background:#fff4e0;color:#b36b00}
+.days-expired{background:#fff0f0;color:#c0392b}
 .form-label{display:block;font-size:13px;font-weight:600;color:#555;margin:14px 0 6px}
 .form-input{width:100%;padding:12px 14px;border:1px solid #ddd;border-radius:10px;font-size:16px;background:#f9f9f9;color:#111;font-family:inherit}
 </style>
@@ -98,6 +105,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="tabs">
         <button class="tab active" id="tab_ricevute" onclick="setTab('ricevute')">🧾 Ricevute</button>
         <button class="tab" id="tab_garanzie" onclick="setTab('garanzie')">🛡️ Garanzie</button>
+        <button class="tab" id="tab_scadenze" onclick="setTab('scadenze')">⏰ Scadenze</button>
       </div>
       <input type="search" class="search-input" id="searchInput" placeholder="🔍 Cerca per nome o cartella..." oninput="renderList()" />
       <div id="loadingBar" class="loading-bar" style="display:none"><div class="loading-bar-inner"></div></div>
@@ -243,11 +251,12 @@ function setTab(tab){
   activeTab=tab;
   $('tab_ricevute').classList.toggle('active',tab==='ricevute');
   $('tab_garanzie').classList.toggle('active',tab==='garanzie');
+  $('tab_scadenze').classList.toggle('active',tab==='scadenze');
   renderList();
 }
 
 function startNew(){
-  if(activeTab==='garanzie')showWarrantyModal();else showCatModal();
+  if(activeTab==='ricevute')showCatModal();else showWarrantyModal();
 }
 
 function showWarrantyModal(){
@@ -817,7 +826,7 @@ function warrantyLines(r){
   const info=warrantyInfo(r.name);
   if(!info.bought)return {title:info.title,sub:fmtDate(r.date),exp:''};
   const bought=new Date(info.bought+'T00:00:00');
-  const until=new Date(bought);until.setFullYear(until.getFullYear()+WARRANTY_YEARS);
+  const until=warrantyExpiry(r);
   const expired=until<new Date();
   return {
     title:info.title,
@@ -826,10 +835,67 @@ function warrantyLines(r){
   };
 }
 
+// Data di scadenza della garanzia (acquisto + WARRANTY_YEARS), null se il nome file non ha la data
+function warrantyExpiry(r){
+  const info=warrantyInfo(r.name);
+  if(!info.bought)return null;
+  const until=new Date(info.bought+'T00:00:00');
+  until.setFullYear(until.getFullYear()+WARRANTY_YEARS);
+  return until;
+}
+
+const SOON_DAYS=90;
+
+function renderExpiry(q){
+  const list=$('receiptList'),empty=$('emptyState'),title=$('listTitle');
+  const today=new Date();today.setHours(0,0,0,0);
+  const items=receipts
+    .filter(r=>isWarranty(r.path)&&(!q||r.name.toLowerCase().includes(q)))
+    .map(r=>{const until=warrantyExpiry(r);return {r,until,days:until?Math.round((until-today)/86400000):null};});
+  if(items.length===0){
+    list.innerHTML='';empty.style.display='block';
+    title.textContent='Scadenze garanzie';
+    $('emptyIcon').textContent='⏰';
+    $('emptyTitle').textContent=q?'Nessun risultato':'Nessuna garanzia';
+    $('emptyText').textContent=q?'Prova con un altro termine di ricerca':'Salva una garanzia per vederne la scadenza';
+    return;
+  }
+  empty.style.display='none';
+  const soon=items.filter(x=>x.days!==null&&x.days>=0&&x.days<=SOON_DAYS).sort((a,b)=>a.days-b.days);
+  const ok=items.filter(x=>x.days!==null&&x.days>SOON_DAYS).sort((a,b)=>a.days-b.days);
+  const expired=items.filter(x=>x.days!==null&&x.days<0).sort((a,b)=>b.days-a.days);
+  const nodate=items.filter(x=>x.days===null);
+  title.textContent=soon.length?soon.length+' in scadenza entro '+SOON_DAYS+' giorni':'Scadenze garanzie';
+  const badge=x=>{
+    if(x.days===null)return `<div class="days-badge days-ok">?</div>`;
+    if(x.days<0)return `<div class="days-badge days-expired">Scaduta</div>`;
+    if(x.days===0)return `<div class="days-badge days-soon">Scade<br>oggi</div>`;
+    const cls=x.days<=SOON_DAYS?'days-soon':'days-ok';
+    return x.days<=SOON_DAYS
+      ?`<div class="days-badge ${cls}"><b>${x.days}</b>giorn${x.days===1?'o':'i'}</div>`
+      :`<div class="days-badge ${cls}"><b>${Math.floor(x.days/30)}</b>mesi</div>`;
+  };
+  const row=x=>`
+    <div class="receipt-card">
+      ${badge(x)}
+      <div class="receipt-info clickable" onclick="openDoc('${x.r.id}')">
+        <div class="receipt-name">${esc(warrantyInfo(x.r.name).title)}</div>
+        <div class="receipt-date">${x.until?(x.days<0?'Scaduta il ':'Scade il ')+fmtDate(x.until):'Data di acquisto sconosciuta'}</div>
+      </div>
+    </div>`;
+  const group=(label,arr)=>arr.length?`<div class="exp-group">${label} (${arr.length})</div>`+arr.map(row).join(''):'';
+  list.innerHTML=
+    group('⏳ In scadenza',soon)+
+    group('✅ Attive',ok)+
+    group('⚠️ Scadute',expired)+
+    group('❓ Senza data',nodate);
+}
+
 function renderList(){
   const list=$('receiptList'),empty=$('emptyState'),title=$('listTitle');
-  const wantWarranty=activeTab==='garanzie';
   const q=$('searchInput').value.trim().toLowerCase();
+  if(activeTab==='scadenze')return renderExpiry(q);
+  const wantWarranty=activeTab==='garanzie';
   const items=receipts.filter(r=>isWarranty(r.path)===wantWarranty&&(!q||r.path.toLowerCase().includes(q)||r.name.toLowerCase().includes(q)));
   if(items.length===0){
     list.innerHTML='';empty.style.display='block';

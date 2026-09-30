@@ -4,6 +4,11 @@ Registro cronologico delle modifiche all'app Spese Sanitarie. Voce più recente 
 
 ## 2026-09-30
 
+### Tab "⏰ Scadenze"
+- Terza scheda con tutte le garanzie ordinate per scadenza (acquisto + 2 anni), raggruppate in: In scadenza (entro 90 giorni), Attive, Scadute, Senza data.
+- Badge con giorni rimanenti (≤ 90 gg) o mesi; tocco → apre il PDF. Il pulsante fotocamera da questa scheda crea una nuova garanzia.
+- `sw.js`: cache v11 → v12.
+
 ### Fotocamera per le pagine successive
 - Dopo la pagina 1 l'app chiamava `fileInput.click()` da sola (dopo operazioni async) → su iOS bloccato, la fotocamera non si riapriva. Ora compare `nextPageModal` con il bottone "📷 Scatta pagina N": il tocco dell'utente riapre la fotocamera.
 - `sw.js`: cache v10 → v11.
