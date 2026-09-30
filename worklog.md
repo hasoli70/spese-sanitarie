@@ -1,8 +1,13 @@
 # Worklog
 
-Registro cronologico delle modifiche all'app Spese Sanitarie. Voce più recente in alto.
+Registro cronologico delle modifiche all'app Documenti Famiglia (ex Spese Sanitarie). Voce più recente in alto.
 
 ## 2026-09-30
+
+### Nuovo nome: Documenti Famiglia
+- L'app archivia ormai ricevute, fatture e garanzie, non solo spese sanitarie: nome visibile "Documenti Famiglia", sotto l'icona "Documenti" (title, apple-mobile-web-app-title, header, schermata login, manifest, testo delle icone).
+- Repo, URL GitHub Pages e cartelle Dropbox invariati: cambiarli romperebbe il redirect OAuth Dropbox e le PWA installate.
+- `sw.js`: cache v13 -> v14.
 
 ### Visore documenti nell'app + versione visibile
 - 👁 ora apre il documento (prima "nascondeva" la scheda fino al reload). Rimossa `hideReceipt`.

@@ -1,6 +1,6 @@
-# Spese Sanitarie
+# Documenti Famiglia
 
-App PWA per fotografare ricevute e fatture sanitarie, ritagliarle, convertirle in PDF e salvarle su Dropbox.
+App PWA per fotografare ricevute, fatture e garanzie, ritagliarle, convertirle in PDF e salvarle su Dropbox. Fino al 30/09/2026 si chiamava "Spese Sanitarie": il repo e il link sono rimasti `spese-sanitarie` per non rompere il login Dropbox e le app già installate.
 
 ## Link
 
