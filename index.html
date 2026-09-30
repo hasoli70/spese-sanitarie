@@ -439,18 +439,21 @@ async function imagesToPdf(files){
   const a4w=595,a4h=842;
   const enc=new TextEncoder();
   const pageData=[];
+  const MAX_PX=2400; // lato lungo massimo dell'immagine nel PDF (leggibilità vs peso)
   for(const file of files){
     const img=await loadImage(file);
-    const w=img.naturalWidth,h=img.naturalHeight;
-    const scale=Math.min(a4w/w,a4h/h,1);
+    // Mantiene la risoluzione della foto (limitata a MAX_PX); la scala in punti A4 la fa il PDF
+    const r=Math.min(1,MAX_PX/Math.max(img.naturalWidth,img.naturalHeight));
+    const w=Math.max(1,Math.round(img.naturalWidth*r)),h=Math.max(1,Math.round(img.naturalHeight*r));
+    const scale=Math.min(a4w/w,a4h/h);
     const pw=Math.round(w*scale),ph=Math.round(h*scale);
     const ox=Math.round((a4w-pw)/2),oy=Math.round((a4h-ph)/2);
     const canvas=document.createElement('canvas');
-    canvas.width=a4w;canvas.height=a4h;
+    canvas.width=w;canvas.height=h;
     const ctx=canvas.getContext('2d');
-    ctx.fillStyle='white';ctx.fillRect(0,0,a4w,a4h);
-    ctx.drawImage(img,ox,oy,pw,ph);
-    const jpegData=canvas.toDataURL('image/jpeg',0.92).split(',')[1];
+    ctx.fillStyle='white';ctx.fillRect(0,0,w,h);
+    ctx.drawImage(img,0,0,w,h);
+    const jpegData=canvas.toDataURL('image/jpeg',0.85).split(',')[1];
     const imgBytes=atob(jpegData);
     const imgLen=imgBytes.length;
     const imgArr=new Uint8Array(imgLen);
@@ -647,7 +650,7 @@ function applyScanFilter(ctx,w,h){
     v=Math.max(0,Math.min(255,v));
     v=128+(v-128)*1.5; // S-curve contrast
     v=Math.max(0,Math.min(255,v));
-    if(v>225)v=255;   // snap near-white to white
+    if(v>240)v=255;   // snap near-white to white (soglia alta: non cancella il testo sbiadito degli scontrini termici)
     lut[i]=v|0;
   }
   for(let i=0;i<d.length;i+=4){

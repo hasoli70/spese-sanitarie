@@ -4,6 +4,11 @@ Registro cronologico delle modifiche all'app Spese Sanitarie. Voce più recente 
 
 ## 2026-09-30
 
+### Fix leggibilità PDF
+- `imagesToPdf`: prima ogni foto veniva ridotta a 595×842 px (A4 a 72 dpi) → scontrini lunghi e stretti illeggibili. Ora l'immagine mantiene la sua risoluzione (lato lungo max 2400 px, JPEG 0.85) e viene scalata sulla pagina A4 dal PDF stesso. Corretto anche `/Width /Height` dell'XObject che non corrispondeva al JPEG reale.
+- Filtro Scansione B/N: soglia "snap al bianco" 225 → 240 per non cancellare il testo sbiadito degli scontrini termici.
+- `sw.js`: cache v9 → v10.
+
 ### Repository garanzie
 - `index.html`: schede "🧾 Ricevute" / "🛡️ Garanzie" sopra la lista, con campo di ricerca (nome o percorso).
 - Nella scheda Garanzie il pulsante fotocamera apre `warrantyModal`: titolo (obbligatorio) + data di acquisto, poi il solito flusso pagine → fotografa/carica → crop → PDF.
