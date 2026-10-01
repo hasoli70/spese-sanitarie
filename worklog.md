@@ -2,6 +2,14 @@
 
 Registro cronologico delle modifiche all'app Documenti Famiglia (ex Spese Sanitarie). Voce più recente in alto.
 
+## 2026-10-01
+
+### Durata garanzia 1 o 2 anni
+- `warrantyModal`: nuovo campo "Durata garanzia" (2 anni legale / 1 anno).
+- Garanzie di 1 anno salvate come `/garanzie/<data>_1anno_<titolo>.pdf`; senza indicazione = 2 anni (file esistenti invariati).
+- Scadenza e schede usano la durata letta dal nome file; la scheda mostra "Acquisto: … · 1 anno".
+- Versione v15, `sw.js` cache v14 -> v15.
+
 ## 2026-09-30
 
 ### Nuovo nome: Documenti Famiglia

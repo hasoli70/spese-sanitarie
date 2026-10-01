@@ -64,7 +64,7 @@ Dalla scheda **🛡️ Garanzie** in alto:
 3. Scegli il numero di pagine (es. 2: prima lo scontrino, poi la garanzia) e scatta/carica le foto
 4. Il PDF viene salvato come `/garanzie/<data acquisto>_<titolo>.pdf`
 
-Nella lista ogni garanzia mostra titolo, data di acquisto e scadenza della garanzia legale (acquisto + 2 anni), evidenziata in rosso se scaduta.
+Nella lista ogni garanzia mostra titolo, data di acquisto e scadenza della garanzia (acquisto + 2 anni, oppure 1 anno se scelto al salvataggio: il file diventa `<data acquisto>_1anno_<titolo>.pdf`), evidenziata in rosso se scaduta.
 
 La scheda **⏰ Scadenze** elenca tutte le garanzie ordinate per data di scadenza, divise in: in scadenza (entro 90 giorni), attive, scadute e senza data.
 
