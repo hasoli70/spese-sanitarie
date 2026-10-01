@@ -4,6 +4,12 @@ Registro cronologico delle modifiche all'app Documenti Famiglia (ex Spese Sanita
 
 ## 2026-10-01
 
+### Modifica garanzia esistente
+- Pulsante ✏️ sulle schede garanzia: riapre `warrantyModal` precompilato (titolo, data acquisto, durata).
+- "Salva" rinomina il file su Dropbox con `files/move_v2` (stessa cartella, `autorename`), riprova dopo refresh token se 401. Il contenuto del PDF non cambia.
+- Nuovo helper `warrantyFileName(date,years,title)` usato sia per il nuovo salvataggio sia per la modifica.
+- Versione v16, `sw.js` cache v15 -> v16.
+
 ### Durata garanzia 1 o 2 anni
 - `warrantyModal`: nuovo campo "Durata garanzia" (2 anni legale / 1 anno).
 - Garanzie di 1 anno salvate come `/garanzie/<data>_1anno_<titolo>.pdf`; senza indicazione = 2 anni (file esistenti invariati).
